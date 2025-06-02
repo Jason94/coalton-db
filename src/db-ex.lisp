@@ -101,6 +101,9 @@
                              (m:collect (make-list (Tuple "Name"
                                                           (SqlText "Steven"))))
                              (Eq_ "Name" (SqlText "Steve"))))
+    (run-query (update-all User
+                           (m:collect (make-list (Tuple "Age"
+                                                        (SqlInt 4))))))
     (let results = (run-sqlite! (select-all User)
                                 cnxn))
     (match results
@@ -116,4 +119,4 @@
   (define res (functional-ex)))
 (coalton res)
 
-;; (coalton (imperitive-ex))
+(coalton (imperitive-ex))

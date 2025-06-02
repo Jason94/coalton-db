@@ -95,7 +95,9 @@
    #:IsNotNull
 
    #:execute-sql
+   #:execute-query
    #:execute-sqls
+   #:execute-queries
    #:ensure-schema
    #:delete-all
    #:delete-where
@@ -118,9 +120,8 @@
 (in-package :citations/db)
 
 ;;;; TODO:
-;;;; - Implement proper query parameterization
-;;;; - Add helpers for serializing Persistable's, maybe using applicatives
 ;;;; - Add transaction support. In particular, RunNonQuerySQLs should almost certainly be one transaction.
+;;;; - Improve the imperative interface.
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -178,6 +179,7 @@
     "Create a SQL table."
     TableDef)
 
+  (repr :lisp)
   (define-type SqlValue
     "A runtime value inside of a SQL row."
     (SqlInt Integer)
@@ -201,6 +203,20 @@
         ((SqlNull)
          "SqlNull")))))
 
+(cl:defun unwrap-sql-value (val)
+  "Unwrap VAL and return the value inside it or a constant representation. Must be
+a type that can be passed directly to a DB implementation as a bound value."
+  (cl:cond
+    ((cl:typep val 'SqlValue/SqlInt)
+     (SqlValue/SqlInt-_0 val))
+    ((cl:typep val 'SqlValue/SqlText)
+     (SqlValue/SqlText-_0 val))
+    ((cl:typep val 'SqlValue/SqlBool)
+     (SqlValue/SqlBool-_0 val))
+    ((cl:typep val 'SqlValue/SqlNull)
+     cl:nil)
+    (cl:t (cl:error (cl:format cl:nil "Unknown SQL Value: ~a" val)))))
+
 ;; TODO: This should probably return a result, maybe? Maybe it's better this way,
 ;;       since this is just internal?
 (cl:defun wrap-raw-sql-value (type raw-val)
@@ -214,7 +230,7 @@
      (SqlText raw-val))
     ((coalton (== (lisp SqlType () type) BoolType))
      (SqlBool raw-val))
-    (cl:t (cl:break) (cl:error (cl:format cl:nil "Unknown SQL type: ~a" type)))))
+    (cl:t (cl:error (cl:format cl:nil "Unknown SQL type: ~a" type)))))
 
 ;;;
 ;;; Row Parser (SQL -> Persistable)
@@ -429,10 +445,18 @@ Example:
 ;;;
 
 (coalton-toplevel
+  (define-struct Query
+    (sql String)
+    (bound-vals (List SqlValue)))
+
+  (declare unbound-query (String -> Query))
+  (define (unbound-query sql)
+    (Query sql (make-list)))
+
   (define-class (Monad :m => MonadDatabase :m)
     "A Monad M capable of executing sql statements and returning result type T."
-    (query-none (String -> :m (Result QueryError Unit)))
-    (query-rows (String -> List ColumnDef -> :m (Result QueryError (List (List SqlValue))))))
+    (query-none (Query -> :m (Result QueryError Unit)))
+    (query-rows (Query -> List ColumnDef -> :m (Result QueryError (List (List SqlValue))))))
 
   (declare make-column-map (List ColumnDef -> List SqlValue -> m:Map ColumnName SqlValue))
   (define (make-column-map cols vals)
@@ -446,20 +470,15 @@ Example:
                                      val)))
     (c:read map)))
 
-;; TODO: Use IO to actually execute SQL queries!
-;; (coalton-toplevel
-;;   (define-instance (MonadDatabase (List SqlValue) IO)
-;;     (define query-sql (const (wrap-io (make-list))))))
-
 ;;;
 ;;; DbOp Free Monad Transformer
 ;;;
 
 (coalton-toplevel
   (define-type (DbOpF :next)
-    (RunNonQuerySQL String (QueryResult Unit -> :next))
-    (RunNonQuerySQLs (List String) (QueryResult Unit -> :next))
-    (SelectRows String (List ColumnDef) (QueryResult (List (m:Map ColumnName SqlValue)) -> :next))
+    (RunNonQuerySQL Query (QueryResult Unit -> :next))
+    (RunNonQuerySQLs (List Query) (QueryResult Unit -> :next))
+    (SelectRows Query (List ColumnDef) (QueryResult (List (m:Map ColumnName SqlValue)) -> :next))
     )
 
   (define-instance (Functor DbOpF)
@@ -490,7 +509,24 @@ argument is the column name."
     (Or_           RowCondition RowCondition)
     (Not_          RowCondition)
     (IsNull        ColumnName)
-    (IsNotNull     ColumnName)))
+    (IsNotNull     ColumnName))
+
+  (declare row-condition-bound-vals (RowCondition -> List SqlValue))
+  (define (row-condition-bound-vals cnd)
+    (match cnd
+      ((Eq_ _ val) (make-list val))
+      ((Neq _ val) (make-list val))
+      ((Gt_ _ val) (make-list val))
+      ((GtEq_ _ val) (make-list val))
+      ((Lt_ _ val) (make-list val))
+      ((LtEq_ _ val) (make-list val))
+      ((And_ a b) (<> (row-condition-bound-vals a)
+                      (row-condition-bound-vals b)))
+      ((Or_ a b) (<> (row-condition-bound-vals a)
+                     (row-condition-bound-vals b)))
+      ((Not_ a) (row-condition-bound-vals a))
+      ((IsNull _) (make-list))
+      ((IsNotNull _) (make-list)))))
 
 ;;;
 ;;; Rendering to SQL
@@ -506,6 +542,13 @@ argument is the column name."
           (True (into c)))))
     (it:fold! <> "" (map escape-char (s:chars str))))
 
+  (declare render-bound-vals (Query -> String))
+  (define (render-bound-vals q)
+    "Create the standard representation for an list of bound values: (?, ?, ...)
+Important Note: Not used in all queries!"
+    (build-str
+     "(" (join-str ", " (map (const "?") (.bound-vals q))) ")"))
+
   (declare render-sql-value (SqlValue -> String))
   (define (render-sql-value val)
     (match val
@@ -514,32 +557,44 @@ argument is the column name."
       ((SqlBool x) (if x "TRUE" "FALSE"))
       ((SqlNull) "NULL")))
 
+  (declare stringify-condition ((SqlValue -> String) -> RowCondition -> String))
+  (define (stringify-condition to-str cnd)
+    (rec (f (RowCondition -> String))
+         ((rem cnd))
+      (match rem
+        ((Eq_ col val)
+         (<> col (<> " = " (to-str val))))
+        ((Neq col val)
+         (<> col (<> " <> " (to-str val))))
+        ((Gt_ col val)
+         (<> col (<> " > " (to-str val))))
+        ((GtEq_ col val)
+         (<> col (<> " >= " (to-str val))))
+        ((Lt_ col val)
+         (<> col (<> " < " (to-str val))))
+        ((LtEq_ col val)
+         (<> col (<> " <= " (to-str val))))
+        ((And_ c1 c2)
+         (<> "(" (<> (f c1) (<> " AND " (<> (f c2) ")")))))
+        ((Or_ c1 c2)
+         (<> "(" (<> (f c1) (<> " OR " (<> (f c2) ")")))))
+        ((Not_ c)
+         (<> "NOT (" (<> (f c) ")")))
+        ((IsNull col)
+         (<> col " IS NULL"))
+        ((IsNotNull col)
+         (<> col " IS NOT NULL"))
+        )))
+
   (declare render-condition (RowCondition -> String))
-  (define (render-condition cnd)
-    (match cnd
-      ((Eq_ col val)
-       (<> col (<> " = " (render-sql-value val))))
-      ((Neq col val)
-       (<> col (<> " <> " (render-sql-value val))))
-      ((Gt_ col val)
-       (<> col (<> " > " (render-sql-value val))))
-      ((GtEq_ col val)
-       (<> col (<> " >= " (render-sql-value val))))
-      ((Lt_ col val)
-       (<> col (<> " < " (render-sql-value val))))
-      ((LtEq_ col val)
-       (<> col (<> " <= " (render-sql-value val))))
-      ((And_ c1 c2)
-       (<> "(" (<> (render-condition c1) (<> " AND " (<> (render-condition c2) ")")))))
-      ((Or_ c1 c2)
-       (<> "(" (<> (render-condition c1) (<> " OR " (<> (render-condition c2) ")")))))
-      ((Not_ c)
-       (<> "NOT (" (<> (render-condition c) ")")))
-      ((IsNull col)
-       (<> col " IS NULL"))
-      ((IsNotNull col)
-       (<> col " IS NOT NULL"))
-      ))
+  (define render-condition (stringify-condition render-sql-value))
+
+  (declare render-condition-bound (RowCondition -> Tuple String (List SqlValue)))
+  (define (render-condition-bound cnd)
+    "Render a condition as SQL with placeholder ?'s and a list of bound values."
+    (Tuple
+     (stringify-condition (const "?") cnd)
+     (row-condition-bound-vals cnd)))
 
   (declare render-sql-type (SqlType -> String))
   (define (render-sql-type sql-type)
@@ -599,35 +654,62 @@ argument is the column name."
         (return col)))
     (error (<> "Could not find column named " name)))
 
-  (declare insert-row-sql (TableDef -> m:Map ColumnName SqlValue -> String))
-  (define (insert-row-sql table col-val)
+  (declare insert-row-query (TableDef -> m:Map ColumnName SqlValue -> Query))
+  (define (insert-row-query table col-val)
     (let pairs = (the (List (Tuple ColumnName SqlValue)) (it:collect! (m:entries col-val))))
     (let col-names = (map tp:fst pairs))
     (let vals = (map (compose render-sql-value tp:snd) pairs))
-    (build-str
-     "INSERT INTO " (.name table) " "
-     "(" (join-str "," col-names) ") VALUES"
-     "(" (join-str "," vals) ");"))
+    (unbound-query
+     (build-str
+      "INSERT INTO " (.name table) " "
+      "(" (join-str "," col-names) ") VALUES"
+      "(" (join-str "," vals) ");")))
 
-  (declare select-sql (TableDef -> Optional RowCondition -> String))
-  (define (select-sql table cnd?)
-    (build-str
-     "SELECT * FROM " (.name table) (render-optional-cnd cnd?) ";"))
+  (declare select-query (TableDef -> Optional RowCondition -> Query))
+  (define (select-query table cnd?)
+    (match cnd?
+      ((None)
+       (unbound-query
+        (build-str
+         "SELECT * FROM " (.name table) ";")))
+      ((Some cnd)
+       (let (Tuple cnd-sql cnd-bound-vals) = (render-condition-bound cnd))
+       (Query
+        (build-str
+         "SELECT * FROM " (.name table) " WHERE " cnd-sql ";")
+        cnd-bound-vals))))
 
-  (declare delete-row-sql (TableDef -> Optional RowCondition -> String))
-  (define (delete-row-sql table cnd?)
-    (build-str
-     "DELETE FROM " (.name table) (render-optional-cnd cnd?) ";"))
+  (declare delete-row-query (TableDef -> Optional RowCondition -> Query))
+  (define (delete-row-query table cnd?)
+    (match cnd?
+      ((None)
+       (unbound-query
+        (build-str
+         "DELETE FROM " (.name table) ";")))
+      ((Some cnd)
+       (let (Tuple cnd-sql cnd-bound-vals) = (render-condition-bound cnd))
+       (Query
+        (build-str "DELETE FROM " (.name table) " WHERE " cnd-sql ";")
+        cnd-bound-vals))))
 
-  (declare update-sql (TableDef -> m:Map ColumnName SqlValue -> Optional RowCondition -> String))
-  (define (update-sql table col-vals cnd?)
-    (let set-exprs = (map (fn ((Tuple col val))
-                            (build-str col " = " (render-sql-value val)))
-                          (m:entries col-vals)))
-    (build-str
-     "UPDATE " (.name table) newline
-     "SET " (join-str (<> "," newline) (it:collect! set-exprs)) newline
-     (render-optional-cnd cnd?) ";")))
+  (declare update-query (TableDef -> m:Map ColumnName SqlValue -> Optional RowCondition -> Query))
+  (define (update-query table col-vals cnd?)
+    (let col-val-pairs = (the (List (Tuple ColumnName SqlValue)) (it:collect! (m:entries col-vals))))
+    (let set-exprs = (map (fn ((Tuple col _))
+                            (build-str col " = ?" ))
+                          col-val-pairs))
+    (let set-bound-vals = (map tp:snd col-val-pairs))
+    (let (Tuple cnd-sql cnd-bound-vals) = (from-opt (Tuple "" (make-list))
+                                                    (map render-condition-bound cnd?)))
+    (let cnd-statement = (if (== "" cnd-sql)
+                             ""
+                             (build-str newline "WHERE " cnd-sql)))
+    (Query
+     (build-str
+      "UPDATE " (.name table) newline
+      "SET " (join-str (<> "," newline) set-exprs)
+      cnd-statement ";")
+     (<> set-bound-vals cnd-bound-vals))))
 
 ;;;
 ;;; DB Raw SQL API
@@ -636,11 +718,23 @@ argument is the column name."
 (coalton-toplevel
   (declare execute-sql (Monad :m => String -> DbOp :m (QueryResult Unit)))
   (define (execute-sql sql)
-    (f:liftF (RunNonQuerySQL sql (const (Ok Unit)))))
+    "Execute an unbound query with no return value."
+    (f:liftF (RunNonQuerySQL (unbound-query sql) (const (Ok Unit)))))
+
+  (declare execute-query (Monad :m => Query -> DbOp :m (QueryResult Unit)))
+  (define (execute-query query)
+    "Execute a bound query with no return value."
+    (f:liftF (RunNonQuerySQL query (const (Ok Unit)))))
 
   (declare execute-sqls (Monad :m => List String -> DbOp :m (QueryResult Unit)))
   (define (execute-sqls sqls)
-    (f:liftF (RunNonQuerySQLs sqls (const (Ok Unit))))))
+    "Execute multiple unbound queries with no return value."
+    (f:liftF (RunNonQuerySQLs (map unbound-query sqls) (const (Ok Unit)))))
+
+  (declare execute-queries (Monad :m => List Query -> DbOp :m (QueryResult Unit)))
+  (define (execute-queries queries)
+    "Execute multiple bound queries with no return value."
+    (f:liftF (RunNonQuerySQLs queries (const (Ok Unit))))))
 
 ;;;
 ;;; DB Persist API
@@ -653,21 +747,21 @@ argument is the column name."
 
   (declare delete-all_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> DbOp :m (QueryResult Unit)))
   (define (delete-all_ tbl-prox)
-    (execute-sql (delete-row-sql (schema tbl-prox) None)))
+    (execute-query (delete-row-query (schema tbl-prox) None)))
 
   (declare delete-where_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> RowCondition -> DbOp :m (QueryResult Unit)))
   (define (delete-where_ tbl-prox cnd)
-    (execute-sql (delete-row-sql (schema tbl-prox) (Some cnd))))
+    (execute-query (delete-row-query (schema tbl-prox) (Some cnd))))
 
   (declare insert-row ((Monad :m) (Persistable :a) => :a -> DbOp :m (QueryResult Unit)))
   (define (insert-row obj)
-    (execute-sql (insert-row-sql (schema (ty:proxy-of obj)) (to-row obj))))
+    (execute-query (insert-row-query (schema (ty:proxy-of obj)) (to-row obj))))
 
   (declare select-where_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> Optional RowCondition -> DbOp :m (QueryResult (List :a))))
   (define (select-where_ tbl-prox cnd?)
-    (let sql = (select-sql (schema tbl-prox) cnd?))
+    (let query = (select-query (schema tbl-prox) cnd?))
     (let parse-rows = (compose (traverse flatten-parsing-errors) (traverse (map from-row))))
-    (f:liftF (SelectRows sql (.columns (schema tbl-prox)) parse-rows)))
+    (f:liftF (SelectRows query (.columns (schema tbl-prox)) parse-rows)))
 
   (declare select-all_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> DbOp :m (QueryResult (List :a))))
   (define (select-all_ tbl-prox)
@@ -675,11 +769,11 @@ argument is the column name."
 
   (declare update-where_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> m:Map ColumnName SqlValue -> RowCondition -> DbOp :m (QueryResult Unit)))
   (define (update-where_ tbl-prox new-vals cnd)
-    (execute-sql (update-sql (schema tbl-prox) new-vals (Some cnd))))
+    (execute-query (update-query (schema tbl-prox) new-vals (Some cnd))))
 
   (declare update-all_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> m:Map ColumnName SqlValue -> DbOp :m (QueryResult Unit)))
   (define (update-all_ tbl-prox new-vals)
-    (execute-sql (update-sql (schema tbl-prox) new-vals None))))
+    (execute-query (update-query (schema tbl-prox) new-vals None))))
 
 ;;; Macros to help with using proxies for the functions that require it:
 
@@ -751,26 +845,30 @@ argument is the column name."
     Unit)
 
   (define-instance (MonadDatabase (ev:EnvT SqlLiteConnection io:IO))
-    (define (query-none sql)
+    (define (query-none (Query sql bound-vals))
       (do
        (connection <- ev:ask)
        (lift (io:wrap-io
-               (lisp :x (connection sql)
-                 (cl:handler-case
-                     (cl:progn
-                       (sl:execute-non-query connection sql)
-                       (Ok Unit))
-                   (cl:error (e)
-                     (Err (QueryError (cl:format cl:nil "~a" e))))))))))
-    (define (query-rows sql cols)
+               (lisp :x (connection sql bound-vals)
+                 (cl:let ((unwrapped-bound-vals (cl:mapcar #'unwrap-sql-value bound-vals)))
+                   (cl:handler-case
+                       (cl:progn
+                         (cl:apply #'sl:execute-non-query (cl:cons connection (cl:cons sql unwrapped-bound-vals)))
+                         (Ok Unit))
+                     (cl:error (e)
+                       (Err (QueryError (cl:format cl:nil "~a" e)))))))))))
+    (define (query-rows (Query sql bound-vals) cols)
       (do
        (connection <- ev:ask)
        (let types = (map .type cols))
        (lift (io:wrap-io
-               (lisp :x (connection sql types)
+               (lisp :x (connection sql bound-vals types)
                  (cl:handler-case
                      (cl:progn
-                       (cl:let ((rows (sl:execute-to-list connection sql)))
+                       (cl:let* ((unwrapped-bound-vals (cl:mapcar #'unwrap-sql-value bound-vals))
+                                 (rows (cl:apply
+                                        #'sl:execute-to-list
+                                        (cl:cons connection (cl:cons sql unwrapped-bound-vals)))))
                          (Ok (cl:mapcar
                               (cl:lambda (row)
                                 (cl:mapcar #'wrap-raw-sql-value types row))

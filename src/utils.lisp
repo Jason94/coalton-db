@@ -16,7 +16,8 @@
    #:newline
    #:to-string
    #:join-str
-   #:liftAn))
+   #:liftAn
+   #:from-opt))
 (in-package :citations/util)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -76,7 +77,13 @@
        (fold (fn (a b)
                (<> a (<> sep b)))
              (l:car strs)
-             (l:cdr strs))))))
+             (l:cdr strs)))))
+
+  (declare from-opt (:a -> Optional :a -> :a))
+  (define (from-opt def opt)
+    (match opt
+      ((Some a) a)
+      ((None) def))))
 
 (coalton-toplevel
   (declare <*> (Applicative :f => :f (:a -> :b) -> :f :a -> :f :b))

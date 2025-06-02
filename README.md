@@ -12,7 +12,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
 
 ## Alpha Status
 
-`coalton-db` is *very much* still in alpha status, if that, and is subject to frequent breaking changes. It's also not yet feature complete, and is missing several important features such as modeling relationships and utilizing query parameterization internally.
+`coalton-db` is *very much* still in alpha status, if that, and is subject to frequent breaking changes. It's also not yet feature complete, and is missing several important features such as modeling relationships and transaction batching/rollback.
 
 # Examples
 
