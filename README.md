@@ -20,11 +20,11 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add tests!
  - [ ] Add table constraints
  - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
- - [ ] Add transaction support. In particular, RunNonQuerySQLs should almost certainly be one transaction.
+ - [x] Add transaction support.
  - [ ] Add SQL functions to RowCondition
  - [ ] Add CHECK column property
  - [ ] Add relationships
- - [ ] Improve the imperative interface.
+ - [ ] Improve the imperative interface. (Lacks proper transaction support)
 
 # Examples
 

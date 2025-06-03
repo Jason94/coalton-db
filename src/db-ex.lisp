@@ -19,6 +19,7 @@
    (:tp #:coalton-library/tuple)
    (:it #:coalton-library/iterator)
    (:ty #:coalton-library/types)
+   (:rt #:coalton-library/monad/resultt)
    (:io #:simple-io/io)
    (:tm #:simple-io/term)
    ))
@@ -59,6 +60,12 @@
         (parse-null "Age" parse-int)))))
 
 (coalton-toplevel
+  (define (runop op)
+    (let cnxn = (connect-sqlite! "test.db"))
+    (let result = (run-sqlite! op cnxn))
+    (disconnect-sqlite! cnxn)
+    result)
+
   (declare functional-operation (DbProgram SqlLiteConnection (List User)))
   (define functional-operation
     (do
@@ -74,6 +81,10 @@
       (update-all User
                   (m:collect (make-list (Tuple "Age"
                                                (SqlInt 4)))))
+      (do-transaction
+        (insert-row (User "Susan" (Some 25)))
+        ;; (execute-sql "123h1t23hn, ej;c312h")
+        )
       (results <- (select-all User))
       (match results
         ((Ok users)
@@ -81,12 +92,6 @@
         ((Err e)
          (lift (lift (tm:write-line (<> "Failed: " (into e)))))))
       (pure results)))
-
-  (define (functional-ex)
-    (let cnxn = (connect-sqlite! "test.db"))
-    (let result = (run-sqlite! functional-operation cnxn))
-    (disconnect-sqlite! cnxn)
-    result)
 
   (declare imperitive-ex (Unit -> QueryResult (List User)))
   (define (imperitive-ex)
@@ -116,7 +121,10 @@
     results))
 
 (coalton-toplevel
-  (define res (functional-ex)))
+  (define res (runop functional-operation)))
 (coalton res)
 
-(coalton (imperitive-ex))
+(coalton (runop (execute-sql "toheun2ch3pn23hp3h,.nte")))
+(coalton (runop (select-all User)))
+
+;; (coalton (imperitive-ex))

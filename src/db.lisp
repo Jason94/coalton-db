@@ -13,6 +13,7 @@
    (:l  #:coalton-library/list)
    (:f  #:coalton-library/monad/free)
    (:ft #:coalton-library/monad/freet)
+   (:rt #:coalton-library/monad/resultt)
    (:s  #:coalton-library/string)
    (:tp #:coalton-library/tuple)
    (:it #:coalton-library/iterator)
@@ -106,6 +107,8 @@
    #:select-all
    #:update-where
    #:update-all
+   #:with-transaction
+   #:do-transaction
 
    #:run-dbop
    #:DbProgram
@@ -410,7 +413,8 @@ Example:
 (coalton-toplevel
   (define-type QueryError
     (ResultParseError PersistParsingError)
-    (QueryError String))
+    (QueryError String)
+    NotInTxError)
 
   (define-type-alias (QueryResult :a) (Result QueryError :a))
 
@@ -429,7 +433,9 @@ Example:
     (define (into err)
       (match err
         ((QueryError msg) msg)
-        ((ResultParseError msg) (<> "Parsing error: " msg)))))
+        ((ResultParseError msg) (<> "Parsing error: " msg))
+        ((NotInTxError)
+         "Attempted to commit or rollback a transaction without being in a transaction."))))
 
   (define-class (ty:RuntimeRepr :a => Persistable :a)
     (schema (ty:Proxy :a -> TableDef))
@@ -475,6 +481,9 @@ Example:
     (RunNonQuerySQL Query (QueryResult Unit -> :next))
     (RunNonQuerySQLs (List Query) (QueryResult Unit -> :next))
     (SelectRows Query (List ColumnDef) (QueryResult (List (m:Map ColumnName SqlValue)) -> :next))
+    (BeginTx :next)
+    (CommitTx :next)
+    (RollbackTx :next)
     )
 
   (define-instance (Functor DbOpF)
@@ -483,6 +492,9 @@ Example:
         ((RunNonQuerySQL q cont) (RunNonQuerySQL q (map f cont)))
         ((RunNonQuerySQLs q cont) (RunNonQuerySQLs q (map f cont)))
         ((SelectRows q r cont) (SelectRows q r (map f cont)))
+        ((BeginTx cont) (BeginTx (f cont)))
+        ((CommitTx cont) (CommitTx (f cont)))
+        ((RollbackTx cont) (RollbackTx (f cont)))
     )))
 
   (define-type-alias DbOp (ft:FreeT DbOpF)))
@@ -650,6 +662,15 @@ Important Note: Not used in all queries!"
         (return col)))
     (error (<> "Could not find column named " name)))
 
+  (declare begin-tx-query Query)
+  (define begin-tx-query (unbound-query "begin transaction"))
+
+  (declare commit-tx-query Query)
+  (define commit-tx-query (unbound-query "commit transaction"))
+
+  (declare rollback-tx-query Query)
+  (define rollback-tx-query (unbound-query "rollback transaction"))
+
   (declare insert-row-query (TableDef -> m:Map ColumnName SqlValue -> Query))
   (define (insert-row-query table col-val)
     (let pairs = (the (List (Tuple ColumnName SqlValue)) (it:collect! (m:entries col-val))))
@@ -715,22 +736,22 @@ Important Note: Not used in all queries!"
   (declare execute-sql (Monad :m => String -> DbOp :m (QueryResult Unit)))
   (define (execute-sql sql)
     "Execute an unbound query with no return value."
-    (f:liftF (RunNonQuerySQL (unbound-query sql) (const (Ok Unit)))))
+    (f:liftF (RunNonQuerySQL (unbound-query sql) id)))
 
   (declare execute-query (Monad :m => Query -> DbOp :m (QueryResult Unit)))
   (define (execute-query query)
     "Execute a bound query with no return value."
-    (f:liftF (RunNonQuerySQL query (const (Ok Unit)))))
+    (f:liftF (RunNonQuerySQL query id)))
 
   (declare execute-sqls (Monad :m => List String -> DbOp :m (QueryResult Unit)))
   (define (execute-sqls sqls)
     "Execute multiple unbound queries with no return value."
-    (f:liftF (RunNonQuerySQLs (map unbound-query sqls) (const (Ok Unit)))))
+    (f:liftF (RunNonQuerySQLs (map unbound-query sqls) id)))
 
   (declare execute-queries (Monad :m => List Query -> DbOp :m (QueryResult Unit)))
   (define (execute-queries queries)
     "Execute multiple bound queries with no return value."
-    (f:liftF (RunNonQuerySQLs queries (const (Ok Unit))))))
+    (f:liftF (RunNonQuerySQLs queries id))))
 
 ;;;
 ;;; DB Persist API
@@ -769,7 +790,29 @@ Important Note: Not used in all queries!"
 
   (declare update-all_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> m:Map ColumnName SqlValue -> DbOp :m (QueryResult Unit)))
   (define (update-all_ tbl-prox new-vals)
-    (execute-query (update-query (schema tbl-prox) new-vals None))))
+    (execute-query (update-query (schema tbl-prox) new-vals None)))
+
+  (declare with-transaction (Monad :m => DbOp :m (QueryResult :a) -> DbOp :m (QueryResult :a)))
+  (define (with-transaction op)
+    "Execute the given database operation inside of a transaction. If the operation returns an Err value,
+rollback the transaction and bubble the error. Otherwise, commit the transaction and return the Ok value of OP.
+If an intermediate query fails but the entire transaction returns an Ok value, it will commit!"
+    (do
+     (f:LiftF (BeginTx Unit))
+     (result <- op)
+     (match result
+       ((Err _)
+        (f:LiftF (RollbackTx Unit)))
+       ((Ok _)
+        (f:LiftF (CommitTx Unit))))
+     (pure result))))
+
+(cl:defmacro do-transaction (cl:&body body)
+  "Execute the database operations inside of a transaction. If any of the queries fail, it will immediately rollback
+the transaction and bubble the error. Otherwise, commit the transaction and return the Ok value of OP."
+  `(with-transaction
+     (rt:do-resultT
+      ,@body)))
 
 ;;; Macros to help with using proxies for the functions that require it:
 
@@ -801,25 +844,35 @@ Important Note: Not used in all queries!"
        ((ft:Val a) (pure a))
        ((ft:FreeF op)
         (match op
-          ((RunNonQuerySQL sql next)
+          ((RunNonQuerySQL qry next)
            (do
-            (result <- (query-none sql))
-            (match result
-              ((Err e) (pure (Err e)))
-              (_ (run-dbop (next result))))))
-          ((RunNonQuerySQLs sqls next)
+            (result <- (query-none qry))
+            (run-dbop (next result))))
+          ((RunNonQuerySQLs queries next)
            (do
-            (results <- (traverse query-none sqls))
+            (results <- (traverse query-none queries))
             (let result = (map (const Unit) (sequence results)))
-            (match result
-              ((Err e) (pure (Err e)))
-              (_ (run-dbop (next result))))))
-          ((SelectRows sql cols next)
+            (run-dbop (next result))))
+          ((SelectRows qry cols next)
            (do
-            (result <- (query-rows sql cols))
+            (result <- (query-rows qry cols))
             (let col-map-result = (map (map (make-column-map cols)) result))
             (run-dbop (next col-map-result))))
-          ))))))
+          ;; NOTE: Not checking for nested tx's because SQLite will fail anyway, and that might be
+          ;; intended behavior for other DB's.
+          ((BeginTx next)
+           (do
+            (query-none begin-tx-query)
+            (run-dbop next)))
+          ((CommitTx next)
+           (do
+            (query-none commit-tx-query)
+            (run-dbop next)))
+          ((RollbackTx next)
+           (do
+            (query-none rollback-tx-query)
+            (run-dbop next)))))))))
+
 
 ;;;
 ;;; SQLite Wrapper
