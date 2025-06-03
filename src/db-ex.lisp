@@ -36,11 +36,9 @@
   (define user-table
     (table
      "User"
-     (make-list
-      (column "Name" TextType (make-list NotNullable Unique))
+     ((column "Name" TextType (NotNullable Unique))
       (default-column "Age" IntType))
-     (make-list
-      (TablePrimaryKey "Name" (make-list "Age")))))
+     ((CompositePrimaryKey "Name" (make-list "Age")))))
 
   (define-struct User
     (name String)
@@ -60,7 +58,29 @@
     (define (from-row col-vals)
       (parse-row User col-vals
         (parse-text "Name")
-        (parse-null "Age" parse-int)))))
+        (parse-null "Age" parse-int))))
+
+  (define-struct Post
+    (user-name String)
+    (title String))
+
+  (define post-table
+    (table
+     "Post"
+     ((column "UserName" TextType ())
+      (column "Title" TextType ()))
+     ((CompositeUnique "UserName" (make-list "Title")))))
+
+  (define-instance (Persistable Post)
+    (define schema (const post-table))
+    (define (to-row post)
+      (build-row post
+        ("UserName" .user-name)
+        ("Title" .title)))
+    (define (from-row col-vals)
+      (parse-row Post col-vals
+        (parse-text "UserName")
+        (parse-text "Title")))))
 
 (coalton-toplevel
   (define (runop op)
@@ -72,7 +92,7 @@
   (declare functional-operation (DbProgram SqlLiteConnection (List User)))
   (define functional-operation
     (do-cancel
-     (ensure-schema (make-list user-table) True)
+     (ensure-schema (make-list user-table post-table) True)
      (delete-all User)
       (insert-row (User "Steve" None))
       (insert-row (User "Bob" (Some 12)))
@@ -119,11 +139,18 @@
     (disconnect-sqlite! cnxn)
     results))
 
-(coalton-toplevel
-  (define res (runop functional-operation)))
-(coalton res)
+;; (coalton-toplevel
+;;   (define res (runop functional-operation)))
+;; (coalton res)
 
-(coalton (runop (execute-sql "toheun2ch3pn23hp3h,.nte")))
-(coalton (runop (select-all User)))
+;; (coalton (runop (execute-sql "toheun2ch3pn23hp3h,.nte")))
+;; (coalton (runop (select-all User)))
+
+;; (coalton (runop
+;;           (with-transaction
+;;               (do
+;;                (ensure-schema (make-list post-table) True)
+;;                (insert-row (Post "Steve" "My Post"))
+;;                 (insert-row (Post "Steve" "My Post"))))))
 
 ;; (coalton (imperitive-ex))

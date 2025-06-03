@@ -37,7 +37,8 @@
    #:Unique
 
    #:TableFlag
-   #:TablePrimaryKey
+   #:CompositePrimaryKey
+   #:CompositeUnique
 
    #:ColumnDef
    #:.name
@@ -158,7 +159,8 @@
   (define-type TableFlag
     "Flags on a SQL table."
     ;; Create a primary key on the first and remaining columns
-    (TablePrimaryKey ColumnName (List ColumnName)))
+    (CompositePrimaryKey ColumnName (List ColumnName))
+    (CompositeUnique ColumnName (List ColumnName)))
 
   (define-struct TableDef
     (name String)
@@ -169,11 +171,6 @@
   (define (column-names table)
     (map .name (.columns table)))
 
-  (declare column (String -> SqlType -> List ColumnFlag -> ColumnDef))
-  (define column
-    "Create a SQL column with custom flags."
-    ColumnDef)
-
   (declare default-column (String -> SqlType -> ColumnDef))
   (define (default-column name type)
     "Create a SQL column definition with default flags:
@@ -181,11 +178,6 @@
 * not nullable?   = True
 * unique?         = False"
     (ColumnDef name type (make-list)))
-
-  (declare table (String -> List ColumnDef -> List TableFlag -> TableDef))
-  (define table
-    "Create a SQL table schema."
-    TableDef)
 
   (repr :lisp)
   (define-type SqlValue
@@ -210,6 +202,20 @@
              "SqlBool False"))
         ((SqlNull)
          "SqlNull")))))
+
+(cl:defmacro column (column-name type column-flags)
+  "Construct a column with COLUMN-NAME, TYPE, and COLUMN-FLAGS.
+COLUMN-NAME: String
+TYPE: SqlType
+COLUMN-FLAGS: List ColumnFlag"
+  `(ColumnDef ,column-name ,type (make-list ,@column-flags)))
+
+(cl:defmacro table (table-name columns table-flags)
+  "Simple macro to construct a table with TABLE-NAME, COLUMNS, and TABLE-FLAGS.
+Table-Name: String
+Columns: List ColumnDef
+Table-Flags: List TableFlag"
+  `(TableDef ,table-name (make-list ,@columns) (make-list ,@table-flags)))
 
 (cl:defun unwrap-sql-value (val)
   "Unwrap VAL and return the value inside it or a constant representation. Must be
@@ -243,14 +249,6 @@ a type that can be passed directly to a DB implementation as a bound value."
 ;;;
 ;;; Row Parser (SQL -> Persistable)
 ;;;
-
-;; TODO: There's probably some way that the parser and builders could be simplifed.
-;; For example, having two typeclasses to convert back and forth between SqlValue and
-;; Haskell types, or something. The problem with that is it might be too tied to an
-;; individual DB implementation. We'd need a seam there in any solution that's more
-;; automated than this one. For now, recognizing that these two API's could do more
-;; to reduced boilerplate both in their implementation and usage, we'll leave them here
-;; for now until we get a better feel for the library and what could be done.
 
 (coalton-toplevel
   (define-type-alias PersistParsingError String)
@@ -636,9 +634,12 @@ Important Note: Not used in all queries!"
   (declare render-table-flag (TableFlag -> String))
   (define (render-table-flag flag)
     (match flag
-      ((TablePrimaryKey c1 cs)
+      ((CompositePrimaryKey c1 cs)
        (build-str
-        "PRIMARY KEY (" (join-str ", " (Cons c1 cs)) ")"))))
+        "PRIMARY KEY (" (join-str ", " (Cons c1 cs)) ")"))
+      ((CompositeUnique c1 cs)
+       (build-str
+        "UNIQUE (" (join-str ", " (Cons c1 cs)) ")"))))
 
   (declare render-table-sql (Boolean -> TableDef -> List String))
   (define (render-table-sql overwrite table)
