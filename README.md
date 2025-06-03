@@ -14,6 +14,18 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
 
 `coalton-db` is *very much* still in alpha status, if that, and is subject to frequent breaking changes. It's also not yet feature complete, and is missing several important features such as modeling relationships and transaction batching/rollback.
 
+### TODOs:
+
+ - [x] Add internal support for query parameterization, instead of hard-coding values
+ - [ ] Add tests!
+ - [ ] Add table constraints
+ - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
+ - [ ] Add transaction support. In particular, RunNonQuerySQLs should almost certainly be one transaction.
+ - [ ] Add SQL functions to RowCondition
+ - [ ] Add CHECK column property
+ - [ ] Add relationships
+ - [ ] Improve the imperative interface.
+
 # Examples
 
 `coalton-db` allows you to easily define a POCO (Plain Old Coalton Object) and a related SQL table definition:

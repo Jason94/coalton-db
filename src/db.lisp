@@ -119,10 +119,6 @@
 
 (in-package :citations/db)
 
-;;;; TODO:
-;;;; - Add transaction support. In particular, RunNonQuerySQLs should almost certainly be one transaction.
-;;;; - Improve the imperative interface.
-
 (named-readtables:in-readtable coalton:coalton)
 
 ;;;
