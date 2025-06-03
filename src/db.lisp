@@ -108,7 +108,7 @@
    #:update-where
    #:update-all
    #:with-transaction
-   #:do-transaction
+   #:do-cancel
 
    #:run-dbop
    #:DbProgram
@@ -807,12 +807,9 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
         (f:LiftF (CommitTx Unit))))
      (pure result))))
 
-(cl:defmacro do-transaction (cl:&body body)
-  "Execute the database operations inside of a transaction. If any of the queries fail, it will immediately rollback
-the transaction and bubble the error. Otherwise, commit the transaction and return the Ok value of OP."
-  `(with-transaction
-     (rt:do-resultT
-      ,@body)))
+(cl:defmacro do-cancel (cl:&body body)
+  "Perform a series of steps that return (QueryResult :a), and immediately fail if one returns an Err."
+  `(rt:do-resultT ,@body))
 
 ;;; Macros to help with using proxies for the functions that require it:
 

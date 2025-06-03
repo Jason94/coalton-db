@@ -81,10 +81,11 @@
       (update-all User
                   (m:collect (make-list (Tuple "Age"
                                                (SqlInt 4)))))
-      (do-transaction
-        (insert-row (User "Susan" (Some 25)))
-        ;; (execute-sql "123h1t23hn, ej;c312h")
-        )
+      (with-transaction
+          (do-cancel
+            (insert-row (User "Susan" (Some 25)))
+            (execute-sql "123h1t23hn, ej;c312h")
+            (insert-row (User "Jim" None))))
       (results <- (select-all User))
       (match results
         ((Ok users)
