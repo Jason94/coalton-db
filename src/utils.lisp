@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :citations/util
+(defpackage :coalton-db/util
   (:use
    #:coalton
    #:coalton-prelude)
@@ -18,7 +18,7 @@
    #:join-str
    #:liftAn
    #:from-opt))
-(in-package :citations/util)
+(in-package :coalton-db/util)
 
 (named-readtables:in-readtable coalton:coalton)
 

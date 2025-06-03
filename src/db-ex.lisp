@@ -1,10 +1,10 @@
 (cl:in-package :cl-user)
-(defpackage :citations/db-ex
+(defpackage :coalton-db/db-ex
   (:use
    #:coalton
    #:coalton-prelude
-   #:citations/util
-   #:citations/db)
+   #:coalton-db/util
+   #:coalton-db/db)
   (:local-nicknames
    (:ax #:alexandria)
    (:sl #:sqlite)
@@ -23,7 +23,7 @@
    (:io #:simple-io/io)
    (:tm #:simple-io/term)
    ))
-(in-package :citations/db-ex)
+(in-package :coalton-db/db-ex)
 
 (named-readtables:in-readtable coalton:coalton)
 

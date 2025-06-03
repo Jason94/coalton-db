@@ -1,9 +1,9 @@
 (cl:in-package :cl-user)
-(defpackage :citations/db
+(defpackage :coalton-db/db
   (:use
    #:coalton
    #:coalton-prelude
-   #:citations/util)
+   #:coalton-db/util)
   (:local-nicknames
    (:sl #:sqlite)
    (:ev #:coalton-library/monad/environment)
@@ -120,7 +120,7 @@
    #:run-with-sqlite-connection!
    ))
 
-(in-package :citations/db)
+(in-package :coalton-db/db)
 
 (named-readtables:in-readtable coalton:coalton)
 
