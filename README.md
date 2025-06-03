@@ -22,9 +22,18 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
  - [x] Add transaction support.
  - [ ] Add SQL functions to RowCondition
+ - [ ] Add remaining SQLite column types
+ - [ ] Add DEFAULT column property
  - [ ] Add CHECK column property
  - [ ] Add relationships
  - [ ] Improve the imperative interface. (Lacks proper transaction support)
+ - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
+ 
+### TOMaybes:
+
+Maybe not good ideas, or maybe lower priority ok ideas:
+
+- [ ] Add more validity checking to table definitions (not multiple PKeys, etc) (may not be necessary because the DB should do this for us)
 
 # Examples
 

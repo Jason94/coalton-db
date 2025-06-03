@@ -23,6 +23,7 @@
    (:io #:simple-io/io)
    (:tm #:simple-io/term)
    ))
+
 (in-package :coalton-db/db-ex)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -37,7 +38,9 @@
      "User"
      (make-list
       (column "Name" TextType (make-list NotNullable Unique))
-      (default-column "Age" IntType))))
+      (default-column "Age" IntType))
+     (make-list
+      (TablePrimaryKey "Name" (make-list "Age")))))
 
   (define-struct User
     (name String)
@@ -68,7 +71,7 @@
 
   (declare functional-operation (DbProgram SqlLiteConnection (List User)))
   (define functional-operation
-    (do
+    (do-cancel
      (ensure-schema (make-list user-table) True)
      (delete-all User)
       (insert-row (User "Steve" None))
@@ -84,21 +87,16 @@
       (with-transaction
           (do-cancel
             (insert-row (User "Susan" (Some 25)))
-            (execute-sql "123h1t23hn, ej;c312h")
+            (insert-row (User "Susan" (Some 25)))
             (insert-row (User "Jim" None))))
       (results <- (select-all User))
-      (match results
-        ((Ok users)
-         (lift (lift (tm:write-line (join-str newline (map to-string users))))))
-        ((Err e)
-         (lift (lift (tm:write-line (<> "Failed: " (into e)))))))
-      (pure results)))
+      (pure (pure results))))
 
   (declare imperitive-ex (Unit -> QueryResult (List User)))
   (define (imperitive-ex)
     (let cnxn = (connect-sqlite! "test.db"))
     (let run-query = (run-with-sqlite-connection! cnxn))
-    (run-query (ensure-schema (make-list user-table) False))
+    (run-query (ensure-schema (make-list user-table) True))
     (run-query (delete-all User))
     (run-query (insert-row (User "Steve" None)))
     (run-query (insert-row (User "Bob" (Some 12))))

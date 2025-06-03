@@ -36,6 +36,9 @@
    #:NotNullable
    #:Unique
 
+   #:TableFlag
+   #:TablePrimaryKey
+
    #:ColumnDef
    #:.name
    #:.type
@@ -152,9 +155,15 @@
     (type SqlType)
     (flags (List ColumnFlag)))
 
+  (define-type TableFlag
+    "Flags on a SQL table."
+    ;; Create a primary key on the first and remaining columns
+    (TablePrimaryKey ColumnName (List ColumnName)))
+
   (define-struct TableDef
     (name String)
-    (columns (List ColumnDef)))
+    (columns (List ColumnDef))
+    (flags (List TableFlag)))
 
   (declare column-names (TableDef -> List ColumnName))
   (define (column-names table)
@@ -173,9 +182,9 @@
 * unique?         = False"
     (ColumnDef name type (make-list)))
 
-  (declare table (String -> List ColumnDef -> TableDef))
+  (declare table (String -> List ColumnDef -> List TableFlag -> TableDef))
   (define table
-    "Create a SQL table."
+    "Create a SQL table schema."
     TableDef)
 
   (repr :lisp)
@@ -620,17 +629,25 @@ Important Note: Not used in all queries!"
 
   (declare render-col-def (ColumnDef -> String))
   (define (render-col-def col)
-    (fold <> ""
-          (make-list
-           (.name col) " " (render-sql-type (.type col)) " "
-           (join-str " " (map render-col-flag (.flags col))))))
+    (build-str
+     (.name col) " " (render-sql-type (.type col)) " "
+     (join-str " " (map render-col-flag (.flags col)))))
+
+  (declare render-table-flag (TableFlag -> String))
+  (define (render-table-flag flag)
+    (match flag
+      ((TablePrimaryKey c1 cs)
+       (build-str
+        "PRIMARY KEY (" (join-str ", " (Cons c1 cs)) ")"))))
 
   (declare render-table-sql (Boolean -> TableDef -> List String))
   (define (render-table-sql overwrite table)
+    (let columns-sql = (map render-col-def (.columns table)))
+    (let flags-sql = (map render-table-flag (.flags table)))
     (let create-sql =
       (build-str
        "CREATE TABLE IF NOT EXISTS " (.name table) " (" newline
-       (join-str (<> "," newline) (map render-col-def (.columns table))) newline
+       (join-str (<> "," newline) (<> columns-sql flags-sql)) newline
        ");"))
     (if overwrite
         (make-list
