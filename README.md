@@ -33,6 +33,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add index support
  - [ ] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
    - Include features like ORDER BY, LIMIT, and aggregates
+ - [x] Add query debugging
    
 ### Smaller Clean Ups / Refactors:
 

@@ -114,6 +114,8 @@
    #:update-all
    #:with-transaction
    #:do-cancel
+   #:enable-query-debugging
+   #:disable-query-debugging
 
    #:run-dbop
    #:DbProgram
@@ -543,6 +545,8 @@ Examples:
     (BeginTx :next)
     (CommitTx :next)
     (RollbackTx :next)
+    (EnableQueryDebug :next)
+    (DisableQueryDebug :next)
     )
 
   (define-instance (Functor DbOpF)
@@ -554,6 +558,8 @@ Examples:
         ((BeginTx cont) (BeginTx (f cont)))
         ((CommitTx cont) (CommitTx (f cont)))
         ((RollbackTx cont) (RollbackTx (f cont)))
+        ((EnableQueryDebug cont) (EnableQueryDebug (f cont)))
+        ((DisableQueryDebug cont) (DisableQueryDebug (f cont)))
     )))
 
   (define-type-alias DbOp (ft:FreeT DbOpF)))
@@ -870,6 +876,16 @@ Important Note: Not used in all queries!"
   (define (update-all_ tbl-prox new-vals)
     (execute-query (update-query (schema tbl-prox) new-vals None)))
 
+  (declare enable-query-debugging (Monad :m => DbOp :m (QueryResult Unit)))
+  (define enable-query-debugging
+    "Begin query debugging. Each run query, outputs the SQL and the result to the console."
+    (f:liftF (EnableQueryDebug (Ok Unit))))
+
+  (declare disable-query-debugging (Monad :m => DbOp :m (QueryResult Unit)))
+  (define disable-query-debugging
+    "Disable query debugging."
+    (f:liftF (DisableQueryDebug (Ok Unit))))
+
   (declare with-transaction (Monad :m => DbOp :m (QueryResult :a) -> DbOp :m (QueryResult :a)))
   (define (with-transaction op)
     "Execute the given database operation inside of a transaction. If the operation returns an Err value,
@@ -911,8 +927,21 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
 ;;;
 
 (coalton-toplevel
-  (declare run-dbop (MonadDatabase :m => DbOp :m (QueryResult :a) -> :m (QueryResult :a)))
-  (define (run-dbop op)
+  (inline)
+  (declare run-db-qry-none_ (MonadDatabase :m => Boolean -> Query -> :m (QueryResult Unit)))
+  (define (run-db-qry-none_ debugging? qry)
+    (if debugging?
+        (>>=
+         (query-none qry)
+         (fn (res)
+           (when debugging?
+             (traceobject "Query:" qry))
+           (traceobject "Result:" res)
+           (pure res)))
+        (query-none qry)))
+
+  (declare run-dbop_ (MonadDatabase :m => DbOp :m (QueryResult :a) -> Boolean -> :m (QueryResult :a)))
+  (define (run-dbop_ op debugging?)
     (do
      (step <- (ft:run-freeT op))
      (match step
@@ -921,32 +950,43 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
         (match op
           ((RunNonQuerySQL qry next)
            (do
-            (result <- (query-none qry))
-            (run-dbop (next result))))
+            (result <- (run-db-qry-none_ debugging? qry))
+            (run-dbop_ (next result) debugging?)))
           ((RunNonQuerySQLs queries next)
            (do
-            (results <- (traverse query-none queries))
+            (results <- (traverse (run-db-qry-none_ debugging?) queries))
             (let result = (map (const Unit) (sequence results)))
-            (run-dbop (next result))))
+            (run-dbop_ (next result) debugging?)))
           ((SelectRows qry cols next)
+           (when debugging?
+             (traceobject "Query:" qry))
            (do
             (result <- (query-rows qry cols))
+            (let _ = (if debugging? (traceobject "Result:" result) Unit))
             (let col-map-result = (map (map (make-column-map cols)) result))
-            (run-dbop (next col-map-result))))
+            (run-dbop_ (next col-map-result) debugging?)))
           ;; NOTE: Not checking for nested tx's because SQLite will fail anyway, and that might be
           ;; intended behavior for other DB's.
           ((BeginTx next)
            (do
             (query-none begin-tx-query)
-            (run-dbop next)))
+            (run-dbop_ next debugging?)))
           ((CommitTx next)
            (do
             (query-none commit-tx-query)
-            (run-dbop next)))
+            (run-dbop_ next debugging?)))
           ((RollbackTx next)
            (do
             (query-none rollback-tx-query)
-            (run-dbop next)))))))))
+            (run-dbop_ next debugging?)))
+          ((EnableQueryDebug next)
+           (run-dbop_ next True))
+          ((DisableQueryDebug next)
+           (run-dbop_ next False)))))))
+
+  (declare run-dbop (MonadDatabase :m => DbOp :m (QueryResult :a) -> :m (QueryResult :a)))
+  (define (run-dbop op)
+    (run-dbop_ op False)))
 
 
 ;;;

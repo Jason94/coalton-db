@@ -93,25 +93,26 @@
   (declare functional-operation (DbProgram SqlLiteConnection (List User)))
   (define functional-operation
     (do-cancel
+     enable-query-debugging
      (ensure-schema (make-list user-table post-table) True)
      (delete-all User)
-      (insert-row (User "Steve" None))
-      (insert-row (User "Bob" (Some 12)))
-      (delete-where User (Eq_ "Name" (SqlText "Bob")))
-      (update-where User
-                    (m:collect (make-list (Tuple "Name"
-                                                 (SqlText "Steven"))))
-                    (Eq_ "Name" (SqlText "Steve")))
-      (update-all User
-                  (m:collect (make-list (Tuple "Age"
-                                               (SqlInt 4)))))
-      (with-transaction
-          (do-cancel
-            (insert-row (User "Susan" (Some 25)))
-            (insert-row (User "Susan" (Some 25)))
-            (insert-row (User "Jim" None))))
-      (results <- (select-all User))
-      (pure (pure results))))
+     (insert-row (User "Steve" None))
+     (insert-row (User "Bob" (Some 12)))
+     (delete-where User (Eq_ "Name" (SqlText "Bob")))
+     (update-where User
+                   (m:collect (make-list (Tuple "Name"
+                                                (SqlText "Steven"))))
+                   (Eq_ "Name" (SqlText "Steve")))
+     (update-all User
+                 (m:collect (make-list (Tuple "Age"
+                                              (SqlInt 4)))))
+     (with-transaction
+         (do-cancel
+           (insert-row (User "Susan" (Some 25)))
+           (insert-row (User "Susan" (Some 25)))
+           (insert-row (User "Jim" None))))
+     (results <- (select-all User))
+     (pure (pure results))))
 
   (declare imperitive-ex (Unit -> QueryResult (List User)))
   (define (imperitive-ex)
@@ -140,8 +141,8 @@
     (disconnect-sqlite! cnxn)
     results))
 
-;; (coalton-toplevel
-;;   (define res (runop functional-operation)))
+(coalton-toplevel
+  (define res (runop functional-operation)))
 ;; (coalton res)
 
 ;; (coalton (runop (execute-sql "toheun2ch3pn23hp3h,.nte")))
