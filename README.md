@@ -23,7 +23,8 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [x] Add transaction support.
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
- - [ ] Add DEFAULT column property
+ - [x] Add DEFAULT column property
+ - [ ] Add full DEFAULT support (currently works for creating tables, but will always spec all columns on insert)
  - [ ] Add CHECK column property
  - [x] Add foreign key support
  - [ ] Add joins
@@ -34,6 +35,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
    - Include features like ORDER BY, LIMIT, and aggregates
  - [x] Add query debugging
+ - [ ] RunNonQuerySQLs should short-circuit internally. Particularly egregious for (ensure-schema (...) True)!
    
 ### Smaller Clean Ups / Refactors:
 

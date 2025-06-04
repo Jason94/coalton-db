@@ -31,10 +31,23 @@
    #:TextType
    #:BoolType
 
+   #:SqlValue
+   #:SqlInt
+   #:SqlText
+   #:SqlBool
+   #:SqlNull
+
+   #:DefaultOption
+   #:ConstantValue
+   #:CurrentTime
+   #:CurrentDate
+   #:CurrentTimestamp
+
    #:ColumnFlag
    #:PrimaryKey
    #:NotNullable
    #:Unique
+   #:DefaultVal
 
    #:TableFlag
    #:CompositePrimaryKey
@@ -49,14 +62,8 @@
    #:TableDef
    #:.columns
    #:column
-   #:default-column
+   #:basic-column
    #:table
-
-   #:SqlValue
-   #:SqlInt
-   #:SqlText
-   #:SqlBool
-   #:SqlNull
 
    #:PersistParsingError
    #:RowParser
@@ -136,6 +143,16 @@
 ;;;
 
 (coalton-toplevel
+  (repr :lisp)
+  (define-type SqlValue
+    "A runtime value inside of a SQL row."
+    (SqlInt Integer)
+    (SqlText String)
+    (SqlBool Boolean)
+    SqlNull)
+
+  (derive-eq SqlValue ((SqlInt i) (SqlText t) (SqlBool b) SqlNull))
+
   (define-type-alias TableName String)
   (define-type-alias ColumnName String)
 
@@ -147,13 +164,28 @@
 
   (derive-eq SqlType (IntType TextType BoolType))
 
+  (define-type DefaultOption
+    "Possible values for a column default."
+    (ConstantValue_ SqlValue)
+    CurrentTime
+    CurrentDate
+    CurrentTimestamp)
+
+  (derive-eq DefaultOption ((ConstantValue_ val) CurrentTime CurrentDate CurrentTimestamp))
+
+  (declare ConstantValue (Into :a SqlValue => :a -> DefaultOption))
+  (define (ConstantValue val)
+    "A constant default value for a column."
+    (ConstantValue_ (into val)))
+
   (define-type ColumnFlag
     "Flags on a SQL column."
     PrimaryKey
     NotNullable
-    Unique)
+    Unique
+    (DefaultVal DefaultOption))
 
-  (derive-eq ColumnFlag (PrimaryKey NotNullable Unique))
+  (derive-eq ColumnFlag (PrimaryKey NotNullable Unique (DefaultVal v)))
 
   (define-struct ColumnDef
     (name ColumnName)
@@ -178,21 +210,13 @@
   (define (column-names table)
     (map .name (.columns table)))
 
-  (declare default-column (String -> SqlType -> ColumnDef))
-  (define (default-column name type)
+  (declare basic-column (String -> SqlType -> ColumnDef))
+  (define (basic-column name type)
     "Create a SQL column definition with default flags:
 * primary key?    = False
 * not nullable?   = True
 * unique?         = False"
     (ColumnDef name type (make-list)))
-
-  (repr :lisp)
-  (define-type SqlValue
-    "A runtime value inside of a SQL row."
-    (SqlInt Integer)
-    (SqlText String)
-    (SqlBool Boolean)
-    SqlNull)
 
   (define-type-alias RowMap (m:Map ColumnName SqlValue))
 
@@ -474,7 +498,6 @@ macro!"
 
 (wrap-has-table-name \"User\") => \"User\"
 (wrap-has-table-name User) => (the (ty:Proxy User) ty:Proxy)"
-  (cl:format cl:t "wrapping: ~a~%" x)
   (cl:cond
     ((cl:stringp x)
      x)
@@ -493,7 +516,6 @@ Examples:
   (ForeignKey \"User\" ((\"user-id\" \"id\")))
   (ForeignKey User ((\"user-id\" \"id\")
                     (\"proj-id\" \"proj-id\")))"
-  (cl:format cl:t "has-table: ~a keys: ~a~%" has-table here-key-there-key-pairs)
   (cl:if (cl:null here-key-there-key-pairs)
     (cl:error "Must supply at least one pair of keys!")
     `(ForeignKey% (table-name (wrap-has-table-name ,has-table))
@@ -676,18 +698,41 @@ Important Note: Not used in all queries!"
       ((TextType) "TEXT")
       ((BoolType) "BOOL")))
 
-  (declare render-col-flag (ColumnFlag -> String))
+  (declare render-default-option (DefaultOption -> Tuple String (List SqlValue)))
+  (define (render-default-option opt)
+    (match opt
+      ((ConstantValue_ val)
+       (Tuple (render-sql-value val) (make-list)))
+      ((CurrentTime)
+       (Tuple "CURRENT_TIME" (make-list)))
+      ((CurrentDate)
+       (Tuple "CURRENT_DATE" (make-list)))
+      ((CurrentTimestamp)
+       (Tuple "CURRENT_TIMESTAMP" (make-list)))))
+
+  (declare render-col-flag (ColumnFlag -> Tuple String (List SqlValue)))
   (define (render-col-flag flag)
     (match flag
-      ((PrimaryKey) "PRIMARY KEY")
-      ((NotNullable) "NOT NULL")
-      ((Unique) "UNIQUE")))
+      ((PrimaryKey) (Tuple "PRIMARY KEY" (make-list)))
+      ((NotNullable) (Tuple "NOT NULL" (make-list)))
+      ((Unique) (Tuple "UNIQUE" (make-list)))
+      ((DefaultVal def-opt)
+       (let (Tuple sql bound-vals) = (render-default-option def-opt))
+       (Tuple (<> "DEFAULT " sql) bound-vals))))
 
-  (declare render-col-def (ColumnDef -> String))
+  (declare render-col-def (ColumnDef -> Tuple String (List SqlValue)))
   (define (render-col-def col)
-    (build-str
-     (.name col) " " (render-sql-type (.type col)) " "
-     (join-str " " (map render-col-flag (.flags col)))))
+    (let (Tuple flag-sql flag-bound-vals) =
+      (fold (fn ((Tuple acc-sql acc-bound-vals) flag)
+              (let (Tuple new-sql new-bound-vals) = (render-col-flag flag))
+              (Tuple (build-str acc-sql " " new-sql) (<> acc-bound-vals new-bound-vals)))
+            (Tuple "" (make-list))
+            (.flags col)))
+    (Tuple
+     (build-str
+      (.name col) " " (render-sql-type (.type col)) " "
+      flag-sql)
+     flag-bound-vals))
 
   (declare render-table-flag (TableFlag -> String))
   (define (render-table-flag flag)
@@ -707,25 +752,33 @@ Important Note: Not used in all queries!"
         "FOREIGN KEY " here-keys-sql newline
           "REFERENCES " foreign-table-name there-keys-sql))))
 
-  (declare render-table-sql (Boolean -> TableDef -> List String))
-  (define (render-table-sql overwrite table)
-    (let columns-sql = (map render-col-def (.columns table)))
+  (declare render-table-queries (Boolean -> TableDef -> List Query))
+  (define (render-table-queries overwrite table)
+    (let (Tuple columns-sql column-bound-vals) =
+      (fold (fn ((Tuple acc-sql acc-bound-vals) col)
+              (let (Tuple new-sql new-bound-vals) = (render-col-def col))
+              (Tuple (<> acc-sql (make-list new-sql)) (<> acc-bound-vals new-bound-vals)))
+            (Tuple (make-list) (make-list))
+            (.columns table)))
     (let flags-sql = (map render-table-flag (.flags table)))
-    (let create-sql =
-      (build-str
-       "CREATE TABLE IF NOT EXISTS " (.name table) " (" newline
-       (join-str (<> "," newline) (<> columns-sql flags-sql)) newline
-       ");"))
+    (let create-query =
+      (Query
+       (build-str
+        "CREATE TABLE IF NOT EXISTS " (.name table) " (" newline
+        (join-str (<> "," newline) (<> columns-sql flags-sql)) newline
+        ");")
+       column-bound-vals))
     (if overwrite
         (make-list
-         (build-str
-          "DROP TABLE IF EXISTS " (.name table) ";")
-         create-sql)
-        (make-list create-sql)))
+         (unbound-query
+          (build-str
+           "DROP TABLE IF EXISTS " (.name table) ";"))
+         create-query)
+        (make-list create-query)))
 
-  (declare render-schema-sql (List TableDef -> Boolean -> List String))
-  (define (render-schema-sql tables overwrite)
-    (>>= tables (render-table-sql overwrite))))
+  (declare render-schema-queries (List TableDef -> Boolean -> List Query))
+  (define (render-schema-queries tables overwrite)
+    (>>= tables (render-table-queries overwrite))))
 
 ;;;
 ;;; Render DB Sql
@@ -844,7 +897,7 @@ Important Note: Not used in all queries!"
 (coalton-toplevel
   (declare ensure-schema ((Monad :m) => List TableDef -> Boolean -> DbOp :m (QueryResult Unit)))
   (define (ensure-schema tables overwrite)
-    (execute-sqls (render-schema-sql tables overwrite)))
+    (execute-queries (render-schema-queries tables overwrite)))
 
   (declare delete-all_ ((Monad :m) (Persistable :a) => ty:Proxy :a -> DbOp :m (QueryResult Unit)))
   (define (delete-all_ tbl-prox)

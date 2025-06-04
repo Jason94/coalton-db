@@ -37,7 +37,7 @@
     (table
      "User"
      ((column "Name" TextType (NotNullable Unique))
-      (default-column "Age" IntType))
+      (column "Age" IntType ((DefaultVal (ConstantValue 100)))))
      ((CompositePrimaryKey "Name" (make-list "Age")))))
 
   (define-struct User
@@ -109,7 +109,6 @@
      (with-transaction
          (do-cancel
            (insert-row (User "Susan" (Some 25)))
-           (insert-row (User "Susan" (Some 25)))
            (insert-row (User "Jim" None))))
      (results <- (select-all User))
      (pure (pure results))))
@@ -148,11 +147,12 @@
 ;; (coalton (runop (execute-sql "toheun2ch3pn23hp3h,.nte")))
 ;; (coalton (runop (select-all User)))
 
-;; (coalton (runop
-;;           (with-transaction
-;;               (do
-;;                (ensure-schema (make-list post-table) True)
-;;                (insert-row (Post "Steve" "My Post"))))))
+(coalton (runop
+          (with-transaction
+              (do-cancel
+               enable-query-debugging
+               (ensure-schema (make-list user-table post-table) True)
+               (insert-row (Post "Steve" "My Post"))))))
 
 ;; (coalton (imperitive-ex))
 
