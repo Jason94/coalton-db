@@ -39,6 +39,7 @@
    #:TableFlag
    #:CompositePrimaryKey
    #:CompositeUnique
+   #:ForeignKey
 
    #:ColumnDef
    #:.name
@@ -133,6 +134,7 @@
 ;;;
 
 (coalton-toplevel
+  (define-type-alias TableName String)
   (define-type-alias ColumnName String)
 
   (define-type SqlType
@@ -160,7 +162,10 @@
     "Flags on a SQL table."
     ;; Create a primary key on the first and remaining columns
     (CompositePrimaryKey ColumnName (List ColumnName))
-    (CompositeUnique ColumnName (List ColumnName)))
+    (CompositeUnique ColumnName (List ColumnName))
+    ;; Stores corresponding keys as a tuple list of here -> there
+    (ForeignKey% TableName (List (Tuple ColumnName ColumnName)))
+    )
 
   (define-struct TableDef
     (name String)
@@ -447,7 +452,54 @@ Example:
   (define-class (ty:RuntimeRepr :a => Persistable :a)
     (schema (ty:Proxy :a -> TableDef))
     (to-row (:a -> m:Map ColumnName SqlValue))
-    (from-row (m:Map ColumnName SqlValue -> Result PersistParsingError :a))))
+    (from-row (m:Map ColumnName SqlValue -> Result PersistParsingError :a)))
+
+  (define-class (HasTableName :a)
+    "Allows the user to specify 'User' or '\"User\"' interchangeably in the DSL.
+IMPORTANT: Make sure to wrap external API calls in a macro that wraps the wrap-has-table-name
+macro!"
+    (table-name (:a -> TableName)))
+
+  (define-instance (HasTableName String)
+    (define table-name id))
+
+  (define-instance (Persistable :a => HasTableName (ty:Proxy :a))
+    (define (table-name tbl-prox)
+      (.name (schema tbl-prox)))))
+
+(cl:defmacro wrap-has-table-name (x)
+  "Converts:
+
+(wrap-has-table-name \"User\") => \"User\"
+(wrap-has-table-name User) => (the (ty:Proxy User) ty:Proxy)"
+  (cl:format cl:t "wrapping: ~a~%" x)
+  (cl:cond
+    ((cl:stringp x)
+     x)
+    ((cl:symbolp x)
+     `(the (ty:Proxy ,x) ty:Proxy))
+    (cl:t
+     (cl:error (cl:format cl:nil "Invalid HasTableName specifier: ~a" x)))))
+
+(cl:defmacro ForeignKey (has-table here-key-there-key-pairs)
+  "ForeignKey flag on a table. Can take either a String or a Persistable name
+as the table, and takes a list of (here-key there-key) pairs for the columns.
+Must specify at least one pair of keys!
+
+Examples:
+  (ForeignKey User ((\"user-id\" \"id\")))
+  (ForeignKey \"User\" ((\"user-id\" \"id\")))
+  (ForeignKey User ((\"user-id\" \"id\")
+                    (\"proj-id\" \"proj-id\")))"
+  (cl:format cl:t "has-table: ~a keys: ~a~%" has-table here-key-there-key-pairs)
+  (cl:if (cl:null here-key-there-key-pairs)
+    (cl:error "Must supply at least one pair of keys!")
+    `(ForeignKey% (table-name (wrap-has-table-name ,has-table))
+                  (make-list
+                   ,@(cl:mapcar
+                     #'(cl:lambda (pair)
+                         `(Tuple ,(cl:first pair) ,(cl:second pair)))
+                     here-key-there-key-pairs)))))
 
 ;;;
 ;;; MonadDatabase interface
@@ -639,7 +691,15 @@ Important Note: Not used in all queries!"
         "PRIMARY KEY (" (join-str ", " (Cons c1 cs)) ")"))
       ((CompositeUnique c1 cs)
        (build-str
-        "UNIQUE (" (join-str ", " (Cons c1 cs)) ")"))))
+        "UNIQUE (" (join-str ", " (Cons c1 cs)) ")"))
+      ((ForeignKey% foreign-table-name key-pairs)
+       (let here-keys-sql =
+         (build-str "(" (join-str ", " (map tp:fst key-pairs)) ")"))
+       (let there-keys-sql =
+         (build-str "(" (join-str ", " (map tp:snd key-pairs)) ")"))
+       (build-str
+        "FOREIGN KEY " here-keys-sql newline
+          "REFERENCES " foreign-table-name there-keys-sql))))
 
   (declare render-table-sql (Boolean -> TableDef -> List String))
   (define (render-table-sql overwrite table)
@@ -957,4 +1017,3 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
 
 (coalton-toplevel
   (define-type-alias (DbProgram :cnxn :a ) (DbOp (ev:EnvT :cnxn io:IO) (QueryResult :a))))
-

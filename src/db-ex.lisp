@@ -69,7 +69,8 @@
      "Post"
      ((column "UserName" TextType ())
       (column "Title" TextType ()))
-     ((CompositeUnique "UserName" (make-list "Title")))))
+     ((CompositeUnique "UserName" (make-list "Title"))
+      (ForeignKey User (("UserName" "Name"))))))
 
   (define-instance (Persistable Post)
     (define schema (const post-table))
@@ -150,7 +151,7 @@
 ;;           (with-transaction
 ;;               (do
 ;;                (ensure-schema (make-list post-table) True)
-;;                (insert-row (Post "Steve" "My Post"))
-;;                 (insert-row (Post "Steve" "My Post"))))))
+;;                (insert-row (Post "Steve" "My Post"))))))
 
 ;; (coalton (imperitive-ex))
+

@@ -25,14 +25,27 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add remaining SQLite column types
  - [ ] Add DEFAULT column property
  - [ ] Add CHECK column property
+ - [x] Add foreign key support
+ - [ ] Add joins
  - [ ] Add relationships
  - [ ] Improve the imperative interface. (Lacks proper transaction support)
  - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
+ - [ ] Add index support
+ - [ ] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
+   - Include features like ORDER BY, LIMIT, and aggregates
+   
+### Smaller Clean Ups / Refactors:
+
+- [ ] Make sure HasTableName is utilized uniformly across the API
  
 ### TOMaybes:
 
 Maybe not good ideas, or maybe lower priority ok ideas:
 
+- [ ] Add fine-grained ForeignKey options (ON DELETE CASCADE, ON UPDATE NO ACTION, etc) (DB specific? Probably?)
+- [ ] Add richer ORM style features, like soft deleting and automatic updated-at/created-at cols
+- [ ] Support prepared statements
+- [ ] Support for schema migrations
 - [ ] Either fully support the range of column and table flags, or add a string escape hatch. Not sure how portable flags like "ON CONFLICT REPLACE" would be between DB implementations. (If the SQl is different, that's not too hard a problem to solve. If some flags just aren't supported by some implementations, that's harder.)
 - [ ] Add more validity checking to table definitions (not multiple PKeys, etc) (may not be necessary because the DB should do this for us)
 
