@@ -24,7 +24,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
  - [x] Add DEFAULT column property
- - [ ] Add full DEFAULT support (currently works for creating tables, but will always spec all columns on insert)
+ - [x] Add full DEFAULT support
  - [ ] Add CHECK column property
  - [x] Add foreign key support
  - [ ] Add joins
@@ -39,7 +39,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
    
 ### Smaller Clean Ups / Refactors:
 
-- [ ] Make sure HasTableName is utilized uniformly across the API
+- [ ] Delete HasTableName. Instead we should have a lower level SQL DSL API that takes strings directly.
  
 ### TOMaybes:
 
@@ -148,3 +148,14 @@ Then you can query to and from the database using either a functional or imperat
     (disconnect-sqlite! cnxn)
     results))
 ```
+
+# Features
+
+## Default Values
+
+If a row for a `Persistable` instance is inserted, the value for a column will be ommitted if:
+
+(1) The value is `None` (technically, it checks for `SqlNull` after converting to SQL values)
+(2) The table in the `coalton-db` definition has a DEFAULT flag on that column. `coalton-db` does not query the SQL schema to look for default columns!
+
+An ommitted column will be defaulted by the database. It does not matter if the database column is nullable or not.

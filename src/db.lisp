@@ -18,6 +18,7 @@
    (:tp #:coalton-library/tuple)
    (:it #:coalton-library/iterator)
    (:ty #:coalton-library/types)
+   (:op #:coalton-library/optional)
    (:io #:simple-io/io)
    (:tm #:simple-io/term)
    )
@@ -192,6 +193,16 @@
     (type SqlType)
     (flags (List ColumnFlag)))
 
+  (declare is-default? (ColumnFlag -> Boolean))
+  (define (is-default? flag)
+    (match flag
+      ((DefaultVal _) True)
+      (_ False)))
+
+  (declare has-default? (ColumnDef -> Boolean))
+  (define (has-default? col)
+    (op:some? (l:find is-default? (.flags col))))
+
   (define-type TableFlag
     "Flags on a SQL table."
     ;; Create a primary key on the first and remaining columns
@@ -209,6 +220,13 @@
   (declare column-names (TableDef -> List ColumnName))
   (define (column-names table)
     (map .name (.columns table)))
+
+  (declare lookup-col! (TableDef -> ColumnName -> ColumnDef))
+  (define (lookup-col! table name)
+    (for col in (.columns table)
+      (when (== (.name col) name)
+        (return col)))
+    (error (<> "Could not find column named " name)))
 
   (declare basic-column (String -> SqlType -> ColumnDef))
   (define (basic-column name type)
@@ -792,13 +810,6 @@ Important Note: Not used in all queries!"
       ((Some cnd) (<> " WHERE " (render-condition cnd)))
       ((None) "")))
 
-  (declare lookup-col! (TableDef -> ColumnName -> ColumnDef))
-  (define (lookup-col! table name)
-    (for col in (.columns table)
-      (when (== (.name col) name)
-        (return col)))
-    (error (<> "Could not find column named " name)))
-
   (declare begin-tx-query Query)
   (define begin-tx-query (unbound-query "begin transaction"))
 
@@ -808,9 +819,19 @@ Important Note: Not used in all queries!"
   (declare rollback-tx-query Query)
   (define rollback-tx-query (unbound-query "rollback transaction"))
 
+  (declare remove-col-on-insert? (TableDef -> ColumnName -> SqlValue -> Boolean))
+  (define (remove-col-on-insert? table col-name val)
+    (and (== SqlNull val)
+         (has-default? (lookup-col! table col-name))))
+
   (declare insert-row-query (TableDef -> m:Map ColumnName SqlValue -> Query))
   (define (insert-row-query table col-val)
-    (let pairs = (the (List (Tuple ColumnName SqlValue)) (it:collect! (m:entries col-val))))
+    (let pairs = (the (List (Tuple ColumnName SqlValue))
+                      (it:collect!
+                       (it:filter!
+                        (fn ((Tuple col-name sql-val))
+                          (not (remove-col-on-insert? table col-name sql-val)))
+                        (m:entries col-val)))))
     (let col-names = (map tp:fst pairs))
     (let vals = (map (compose render-sql-value tp:snd) pairs))
     (unbound-query

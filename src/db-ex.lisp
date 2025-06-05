@@ -152,7 +152,8 @@
               (do-cancel
                enable-query-debugging
                (ensure-schema (make-list user-table post-table) True)
-               (insert-row (Post "Steve" "My Post"))))))
+               (insert-row (User "Bob" None))
+               (select-all User)))))
 
 ;; (coalton (imperitive-ex))
 
