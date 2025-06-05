@@ -12,7 +12,8 @@
   :components ((:module "src"
                 :components
                 ((:file "utils")
-                 (:file "db"))))
+                 (:file "db")
+                 (:file "sqlite"))))
   :description "SQL Database library for Coalton."
   :in-order-to ((test-op (test-op "coalton-db/tests"))))
 

@@ -40,7 +40,8 @@
      ((column "Name" TextType (NotNullable Unique))
       (column "Age" IntType ((DefaultVal (ConstantValue 100))
                              NotNullable)))
-     ((CompositePrimaryKey "Name" (make-list "Age")))))
+     ((CompositePrimaryKey "Name" (make-list "Age")))
+     :relationships ((HasOne "Post"))))
 
   (define-struct User
     (name String)
@@ -71,8 +72,8 @@
      "Post"
      ((column "UserName" TextType ())
       (column "Title" TextType ()))
-     ((CompositeUnique "UserName" (make-list "Title"))
-      (ForeignKey User (("UserName" "Name"))))))
+     ((CompositeUnique "UserName" (make-list "Title")))
+     :relationships ((BelongsTo ("UserName") ("User" "Name")))))
 
   (define-instance (Persistable Post)
     (define schema (const post-table))
