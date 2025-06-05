@@ -37,7 +37,8 @@
     (table
      "User"
      ((column "Name" TextType (NotNullable Unique))
-      (column "Age" IntType ((DefaultVal (ConstantValue 100)))))
+      (column "Age" IntType ((DefaultVal (ConstantValue 100))
+                             NotNullable)))
      ((CompositePrimaryKey "Name" (make-list "Age")))))
 
   (define-struct User
@@ -152,6 +153,7 @@
               (do-cancel
                enable-query-debugging
                (ensure-schema (make-list user-table post-table) True)
+               (insert-row (Post "THOE" "ou"))
                (insert-row (User "Bob" None))
                (select-all User)))))
 

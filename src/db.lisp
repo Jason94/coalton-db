@@ -833,12 +833,14 @@ Important Note: Not used in all queries!"
                           (not (remove-col-on-insert? table col-name sql-val)))
                         (m:entries col-val)))))
     (let col-names = (map tp:fst pairs))
-    (let vals = (map (compose render-sql-value tp:snd) pairs))
-    (unbound-query
+    (let vals = (map tp:snd pairs))
+    (let placeholders = (map (const "?") vals))
+    (Query
      (build-str
       "INSERT INTO " (.name table) " "
       "(" (join-str "," col-names) ") VALUES"
-      "(" (join-str "," vals) ");")))
+      "(" (join-str "," placeholders) ");")
+     vals))
 
   (declare select-query (TableDef -> Optional RowCondition -> Query))
   (define (select-query table cnd?)
@@ -916,6 +918,12 @@ Important Note: Not used in all queries!"
 ;;;
 
 (coalton-toplevel
+  (declare enable-foreign-keys (Monad :m => DbOp :m (QueryResult Unit)))
+  (define enable-foreign-keys
+    "Due to bad life choices, SQLite makes you enable foreign keys every connection,
+or it doesn't enforce constraints. Automatically runs on SQLite connections coalton-db connections."
+    (execute-query (unbound-query "PRAGMA foreign_keys = ON;")))
+
   (declare ensure-schema ((Monad :m) => List TableDef -> Boolean -> DbOp :m (QueryResult Unit)))
   (define (ensure-schema tables overwrite)
     (execute-queries (render-schema-queries tables overwrite)))
@@ -1060,7 +1068,12 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
 
   (declare run-dbop (MonadDatabase :m => DbOp :m (QueryResult :a) -> :m (QueryResult :a)))
   (define (run-dbop op)
-    (run-dbop_ op False)))
+    (run-dbop_
+     (do
+      ;; TODO: Move this into the SQLite db connection constructor.
+      enable-foreign-keys
+      op)
+     False)))
 
 
 ;;;
