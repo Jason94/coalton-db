@@ -4,7 +4,8 @@
    #:coalton
    #:coalton-prelude
    #:coalton-db/util
-   #:coalton-db/db)
+   #:coalton-db/db
+   #:coalton-db/sqlite)
   (:local-nicknames
    (:ax #:alexandria)
    (:sl #:sqlite)
