@@ -20,6 +20,7 @@
    (:tp #:coalton-library/tuple)
    (:it #:coalton-library/iterator)
    (:ty #:coalton-library/types)
+   (:op #:coalton-library/optional)
    (:rt #:coalton-library/monad/resultt)
    (:io #:simple-io/io)
    (:tm #:simple-io/term)
@@ -45,7 +46,8 @@
 
   (define-struct User
     (name String)
-    (age (Optional Integer)))
+    (age (Optional Integer))
+    (post (Rel Post)))
 
   (define-instance (Into User String)
     (define (into user)
@@ -61,7 +63,8 @@
     (define (from-row col-vals)
       (parse-row User col-vals
         (parse-text "Name")
-        (parse-null "Age" parse-int))))
+        (parse-null "Age" parse-int)
+        (parse-empty-rel))))
 
   (define-struct Post
     (user-name String)
@@ -143,8 +146,8 @@
     (disconnect-sqlite! cnxn)
     results))
 
-(coalton-toplevel
-  (define res (runop functional-operation)))
+;; (coalton-toplevel
+;;   (define res (runop functional-operation)))
 ;; (coalton res)
 
 ;; (coalton (runop (execute-sql "toheun2ch3pn23hp3h,.nte")))
@@ -155,9 +158,14 @@
               (do-cancel
                enable-query-debugging
                (ensure-schema (make-list user-table post-table) True)
-               (insert-row (Post "THOE" "ou"))
-               (insert-row (User "Bob" None))
-               (select-all User)))))
+               (insert-row (User "Bob" None (empty-rel)))
+               (insert-row (Post "Bob" "This is my first post!"))
+               (users <- (select-all User))
+               (let user = (op:from-some "Couldn't find user" (l:head users)))
+               (! .post user)
+               ;; (map sequence (traverse (! .post) users))
+               (pure (Ok users))
+               ))))
 
 ;; (coalton (imperitive-ex))
 

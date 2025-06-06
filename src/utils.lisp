@@ -17,7 +17,8 @@
    #:to-string
    #:join-str
    #:liftAn
-   #:from-opt))
+   #:from-opt
+   #:flatten-opts))
 (in-package :coalton-db/util)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -103,3 +104,15 @@
 
 (cl:defmacro liftAn (f cl:&rest rest)
   (liftAn_ f rest))
+
+(coalton-toplevel
+  (declare flatten-opts (List (Optional :a) -> List :a))
+  (define (flatten-opts lst)
+    (rec f ((rem (l:reverse lst))
+            (accum Nil))
+      (match rem
+        ((Nil) accum)
+        ((Cons ma rest)
+         (match ma
+           ((None) (f rest accum))
+           ((Some a) ( f rest (Cons a accum)))))))))
