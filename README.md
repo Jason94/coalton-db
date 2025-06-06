@@ -36,6 +36,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
    - Include features like ORDER BY, LIMIT, and aggregates
  - [x] Add query debugging
  - [ ] RunNonQuerySQLs should short-circuit internally. Particularly egregious for (ensure-schema (...) True)!
+ - [ ] Disconnect from the DB if the thread crashes (keep it from locking until restarting SLIME)
    
 ### Smaller Clean Ups / Refactors:
 

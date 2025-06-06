@@ -1168,54 +1168,75 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
        (And_ (Eq_ col-name col-val)
              (all-eq rest)))))
 
-  (declare load-rel-query ((Persistable :p) (Persistable :a) => :p -> Rel :a -> Optional Query))
-  (define (load-rel-query parent (Rel_ rel-cell))
+  ;; TODO: Refactor this, this is terrible.
+  (declare load-rel-query ((Persistable :a) (Persistable :b) => :a -> Rel :b -> Optional Query))
+  (define (load-rel-query obj (Rel_ rel-cell))
+    "Given an object and a relationship, load the object on the other side of the relationship."
     (match (c:read rel-cell)
       ((Loaded _) None)
       ((Unloaded)
-       (let parent-prox = (ty:proxy-of parent))
-       (let parent-tbl-name = (.name (schema parent-prox)))
+       (let obj-prox = (ty:proxy-of obj))
+       (let obj-tbl-name = (.name (schema obj-prox)))
        (let child-prox = (ty:proxy-inner (ty:proxy-inner (ty:proxy-of rel-cell))))
        (do
-        (rltn <- (relationship-with parent-prox child-prox))
+        (rltn <- (relationship-with obj-prox child-prox))
         ((ForeignKey% other-tbl-name key-pairs) <- (relationship-foreign-key rltn))
-        (let all-parent-col-vals = (to-row parent))
-        (let parent-key-cols =
-          (if (== parent-tbl-name other-tbl-name)
-              ;; Remember, key-pairs is a List of (Tuple here-key other-key)
-              (map tp:snd key-pairs)
-              (map tp:fst key-pairs)))
-        (let parent-key-vals =
+        (let all-obj-col-vals = (to-row obj))
+        ;; Remember, key-pairs is a List of (Tuple here-key other-key). If we need to retrieve
+        ;; the table named in the relationship, that's the "other-key" side. So we'd want to
+        ;; retrieve other-key values from the DB and check them against here-key values in the
+        ;; obj passed into this function.
+        (let get-col-to-retrieve =
+          (if (== obj-tbl-name other-tbl-name)
+              tp:fst
+              tp:snd))
+        (let get-col-to-compare =
+          (if (== obj-tbl-name other-tbl-name)
+              tp:snd
+              tp:fst))
+        (let obj-key-vals =
           (map
-           (fn (col-name)
-             (Tuple col-name
-                    (from-some (build-str "Error: Missing foreign key column '" col-name "' in table " parent-tbl-name)
-                               (m:lookup all-parent-col-vals col-name))))
-           parent-key-cols))
-        (Some (select-query (schema child-prox) (Some (all-eq parent-key-vals))))))))
+           (fn (key-pair)
+             (Tuple (get-col-to-retrieve key-pair)
+                    (from-some (build-str "Error: Missing foreign key column '" (get-col-to-compare key-pair) "' in table " obj-tbl-name)
+                               (m:lookup all-obj-col-vals (get-col-to-compare key-pair)))))
+           key-pairs))
+        (Some (select-query (schema child-prox) (Some (all-eq obj-key-vals))))))))
 
   ;; TODO: Support Optional relationships ... somehow... *Probably* going to have to add some parser def or something
-  (declare ! ((Persistable :p) (Persistable :c) (Monad :m) => (:p -> Rel :c) -> :p -> DbOp :m (QueryResult :c)))
-  (define (! to-rel parent)
-    (let rel-proxy = ty:Proxy)
-    (let child-prox = (ty:proxy-inner rel-proxy))
-    (rt:run-resultT
-     (do
-      (let rel = (ty:as-proxy-of (to-rel parent) rel-proxy))
-      (match (load-rel-query parent rel)
-        ;; TODO: This should be a different error type, it's not a query error!
-        ((None) (rt:ResultT (pure (Err (QueryError "Attempted to load an undefined relationship")))))
-        ((Some qry)
-         (do
-          (let parse-rows = (compose (traverse flatten-parsing-errors) (traverse (map from-row))))
-          (rows <- (rt:ResultT (f:liftF (SelectRows qry (.columns (schema child-prox)) parse-rows))))
-          (match rows
-            ((Nil) (rt:ResultT (pure (Err (QueryError "Could not find child")))))
-            ((Cons c (Nil)) (rt:ResultT (pure (Ok c))))
-            (_ (rt:ResultT (pure (Err (QueryError "Found multiple children for one-to-one relationship!"))))))))))))
+  (declare !_ ((Persistable :p) (Persistable :c) (Monad :m) => (:p -> Rel :c) -> :p -> DbOp :m (QueryResult :c)))
+  (define (!_ to-rel parent)
+    (let (Rel_ rel-cell) = (to-rel parent))
+    (match (c:read rel-cell)
+      ((Loaded a) (pure (Ok a)))
+      ((Unloaded)
+       (let rel-proxy = ty:Proxy)
+       (let child-prox = (ty:proxy-inner rel-proxy))
+       (rt:run-resultT
+        (do
+         (let rel = (ty:as-proxy-of (to-rel parent) rel-proxy))
+         (match (load-rel-query parent rel)
+           ;; TODO: This should be a different error type, it's not a query error!
+           ((None) (rt:ResultT (pure (Err (QueryError "Attempted to load an undefined relationship")))))
+           ((Some qry)
+            (do
+             (let parse-rows = (compose (traverse flatten-parsing-errors) (traverse (map from-row))))
+             (rows <- (rt:ResultT (f:liftF (SelectRows qry (.columns (schema child-prox)) parse-rows))))
+             (match rows
+               ((Nil) (rt:ResultT (pure (Err (QueryError "Could not find child")))))
+               ((Cons c (Nil))
+                ;; Nobody should EVER do this. Seriously, don't do this at home.
+                (c:write! rel-cell (Loaded c))
+                (rt:ResultT (pure (Ok c))))
+               (_ (rt:ResultT (pure (Err (QueryError "Found multiple children for one-to-one relationship!"))))))))))))))
   )
 
+;; TODO: Have to do this because of a very strange compiler error that I'm 99% sure is a Coalton bug,
+;; which forces you to annotate the return type. Accessors don't work very well in complex type
+;; inference situations. Try just using !_ in a `do`. Should post an issue on the GitHub.
 
+(cl:defmacro ! (type accessor obj)
+  `(the (DbOp :m (QueryResult ,type)) (!_ ,accessor ,obj)))
 
 ;;;
 ;;; Running DbOp's

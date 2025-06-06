@@ -68,7 +68,8 @@
 
   (define-struct Post
     (user-name String)
-    (title String))
+    (title String)
+    (user (Rel User)))
 
   (define post-table
     (table
@@ -87,7 +88,8 @@
     (define (from-row col-vals)
       (parse-row Post col-vals
         (parse-text "UserName")
-        (parse-text "Title")))))
+        (parse-text "Title")
+        (parse-empty-rel)))))
 
 (coalton-toplevel
   (define (runop op)
@@ -102,8 +104,8 @@
      enable-query-debugging
      (ensure-schema (make-list user-table post-table) True)
      (delete-all User)
-     (insert-row (User "Steve" None))
-     (insert-row (User "Bob" (Some 12)))
+     (insert-row (User "Steve" None (empty-rel)))
+     (insert-row (User "Bob" (Some 12) (empty-rel)))
      (delete-where User (Eq_ "Name" (SqlText "Bob")))
      (update-where User
                    (m:collect (make-list (Tuple "Name"
@@ -114,8 +116,8 @@
                                               (SqlInt 4)))))
      (with-transaction
          (do-cancel
-           (insert-row (User "Susan" (Some 25)))
-           (insert-row (User "Jim" None))))
+           (insert-row (User "Susan" (Some 25) (empty-rel)))
+           (insert-row (User "Jim" None (empty-rel)))))
      (results <- (select-all User))
      (pure (pure results))))
 
@@ -125,8 +127,8 @@
     (let run-query = (run-with-sqlite-connection! cnxn))
     (run-query (ensure-schema (make-list user-table) True))
     (run-query (delete-all User))
-    (run-query (insert-row (User "Steve" None)))
-    (run-query (insert-row (User "Bob" (Some 12))))
+    (run-query (insert-row (User "Steve" None (empty-rel))))
+    (run-query (insert-row (User "Bob" (Some 12) (empty-rel))))
     (run-query (delete-where User (Eq_ "Name" (SqlText "Bob"))))
     (run-query (update-where User
                              (m:collect (make-list (Tuple "Name"
@@ -156,15 +158,18 @@
 (coalton (runop
           (with-transaction
               (do-cancel
-               enable-query-debugging
-               (ensure-schema (make-list user-table post-table) True)
+               (ensure-schema (make-list post-table user-table) True)
                (insert-row (User "Bob" None (empty-rel)))
-               (insert-row (Post "Bob" "This is my first post!"))
+               (insert-row (Post "Bob" "This is my first post!" (empty-rel)))
                (users <- (select-all User))
                (let user = (op:from-some "Couldn't find user" (l:head users)))
-               (! .post user)
-               ;; (map sequence (traverse (! .post) users))
-               (pure (Ok users))
+               (! Post .post user)
+               (posts <- (select-all Post))
+               (let post = (op:from-some "No post" (l:head posts)))
+               enable-query-debugging
+               (! User .user post)
+               (! User .user post)
+               (pure (Ok post))
                ))))
 
 ;; (coalton (imperitive-ex))
