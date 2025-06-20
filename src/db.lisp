@@ -3,7 +3,9 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-db/util)
+   #:coalton-db/util
+   #:coalton-db/core
+   )
   (:local-nicknames
    (:ev #:coalton-library/monad/environment)
    (:c  #:coalton-library/cell)
@@ -25,31 +27,10 @@
    #:coalton-library/classes
    #:lift)
   (:export
-   #:ColumnName
-   #:SqlType
-   #:IntType
-   #:TextType
-   #:BoolType
-
-   #:SqlValue
-   #:SqlInt
-   #:SqlText
-   #:SqlBool
-   #:SqlNull
+   #:HasTableName
+   #:wrap-has-table-name
 
    #:Query
-
-   #:DefaultOption
-   #:ConstantValue
-   #:CurrentTime
-   #:CurrentDate
-   #:CurrentTimestamp
-
-   #:ColumnFlag
-   #:PrimaryKey
-   #:NotNullable
-   #:Unique
-   #:DefaultVal
 
    #:TableFlag
    #:CompositePrimaryKey
@@ -146,115 +127,37 @@
 (named-readtables:in-readtable coalton:coalton)
 
 ;;;
-;;; Table Schema DSL
+;;; HasTableName typeclass & API helpers
 ;;;
 
 (coalton-toplevel
-  (repr :lisp)
-  (define-type SqlValue
-    "A runtime value inside of a SQL row."
-    (SqlInt Integer)
-    (SqlText String)
-    (SqlBool Boolean)
-    SqlNull)
+  (define-class (HasTableName :a)
+    "Allows the user to specify 'User' or '\"User\"' interchangeably in the DSL.
+IMPORTANT: Make sure to wrap external API calls in a macro that wraps the wrap-has-table-name
+macro!"
+    (table-name (:a -> TableName)))
 
-  (derive-eq SqlValue ((SqlInt i) (SqlText t) (SqlBool b) SqlNull))
+  (define-instance (HasTableName String)
+    (define table-name id))
+  )
 
-  (define-type-alias TableName String)
-  (define-type-alias ColumnName String)
 
-  (define-type SqlType
-    "The type of a SQL column or value."
-    IntType
-    TextType
-    BoolType)
+;;; NOTE: This is probably a bad idea. The behavior here isn't very intuitive,
+;;; because it doesn't detect if the wrapped thing is a Coalton string, but
+;;; just checks if it's a string literal.
 
-  (derive-eq SqlType (IntType TextType BoolType))
+(cl:defmacro wrap-has-table-name (x)
+  "Converts:
 
-  (define-type DefaultOption
-    "Possible values for a column default."
-    (ConstantValue_ SqlValue)
-    CurrentTime
-    CurrentDate
-    CurrentTimestamp)
-
-  (derive-eq DefaultOption ((ConstantValue_ val) CurrentTime CurrentDate CurrentTimestamp))
-
-  (declare ConstantValue (Into :a SqlValue => :a -> DefaultOption))
-  (define (ConstantValue val)
-    "A constant default value for a column."
-    (ConstantValue_ (into val)))
-
-  (define-type ColumnFlag
-    "Flags on a SQL column."
-    PrimaryKey
-    NotNullable
-    Unique
-    (DefaultVal DefaultOption))
-
-  (derive-eq ColumnFlag (PrimaryKey NotNullable Unique (DefaultVal v)))
-
-  (define-struct ColumnDef
-    (name ColumnName)
-    (type SqlType)
-    (flags (List ColumnFlag)))
-
-  (declare is-default? (ColumnFlag -> Boolean))
-  (define (is-default? flag)
-    (match flag
-      ((DefaultVal _) True)
-      (_ False)))
-
-  (declare has-default? (ColumnDef -> Boolean))
-  (define (has-default? col)
-    (op:some? (l:find is-default? (.flags col))))
-
-  (define-type TableFlag
-    "Flags on a SQL table."
-    ;; Create a primary key on the first and remaining columns
-    (CompositePrimaryKey ColumnName (List ColumnName))
-    (CompositeUnique ColumnName (List ColumnName))
-    ;; Stores corresponding keys as a tuple list of here -> there
-    ;; TODO: Change back to ForeignKey_
-    (ForeignKey% TableName (List (Tuple ColumnName ColumnName)))
-    )
-
-  (define-type Relationship
-    (HasOne TableName)
-    ;; List of (our key, their key)
-    (BelongsTo_  TableName (List (Tuple ColumnName ColumnName))))
-
-  (declare has-keys? (Relationship -> Boolean))
-  (define (has-keys? rltn)
-    "Return TRUE if RLTN stores the keys for the relationishp."
-    (match rltn
-      ((HasOne _) False)
-      ((BelongsTo_ _ _) True)))
-
-  (declare rltn-table-name (Relationship -> TableName))
-  (define (rltn-table-name rltn)
-    "Get the table name for the other side of a relationship."
-    (match rltn
-      ((HasOne name)
-       name)
-      ((BelongsTo_ name _)
-       name)))
-
-  (declare relationship-foreign-key (Relationship -> Optional TableFlag))
-  (define (relationship-foreign-key rltn)
-    "For RLTN, generate the foreign key(s) on the table that relationship is defined on."
-    (match rltn
-      ((HasOne _)
-       None)
-      ((BelongsTo_ other-tbl-name key-pairs)
-       (Some (ForeignKey% other-tbl-name key-pairs)))))
-
-  (define-struct TableDef
-    (name String)
-    (columns (List ColumnDef))
-    (flags (List TableFlag))
-    (relationships (List Relationship))))
-
+(wrap-has-table-name \"User\") => \"User\"
+(wrap-has-table-name User) => (the (ty:Proxy User) ty:Proxy)"
+  (cl:cond
+    ((cl:stringp x)
+     x)
+    ((cl:symbolp x)
+     `(the (ty:Proxy ,x) ty:Proxy))
+    (cl:t
+     (cl:error (cl:format cl:nil "Invalid HasTableName specifier: ~a" x)))))
 ;;;
 ;;; Persistable Class
 ;;;
@@ -291,87 +194,12 @@
   (define-class (ty:RuntimeRepr :a => Persistable :a)
     (schema (ty:Proxy :a -> TableDef))
     (to-row (:a -> m:Map ColumnName SqlValue))
-    (from-row (m:Map ColumnName SqlValue -> Result PersistParsingError :a))))
+    (from-row (m:Map ColumnName SqlValue -> Result PersistParsingError :a)))
 
-;;;
-;;; TableDef utilities
-;;;
+  (define-instance (Persistable :a => HasTableName (ty:Proxy :a))
+    (define (table-name tbl-prox)
+      (.name (schema tbl-prox)))))
 
-(coalton-toplevel
-  (declare relationship-with ((Persistable :a) (Persistable :b) => ty:Proxy :a -> ty:Proxy :b -> Optional Relationship))
-  (define (relationship-with tbl-a tbl-b)
-    "Get the relationship (if any) between TBL-A and TBL-B that contains the foregin keys.
-Only looks for relationships defined on TBL-A! (Remember, relationships should be defined
-on both tables.)"
-    (let schema-a = (schema tbl-a))
-    (let schema-b = (schema tbl-b))
-    (let name-b = (.name schema-b))
-    (for rltn in (.relationships schema-a)
-      (when (and (== name-b (rltn-table-name rltn))
-                 (has-keys? rltn))
-        (return (Some rltn))))
-    (let name-a = (.name schema-a))
-    (for rltn in (.relationships schema-b)
-      (when (and (== name-a (rltn-table-name rltn))
-                 (has-keys? rltn))
-        (return (Some rltn))))
-    None)
-
-  (declare all-flags (TableDef -> List TableFlag))
-  (define (all-flags table)
-    "Get all of the flags on a table, including those generated by relationship
-definitions, etc."
-    (<> (.flags table) (flatten-opts (map relationship-foreign-key (.relationships table)))))
-
-  (define-instance (Eq TableDef)
-    (define (== a b)
-      (== (.name a) (.name b))))
-
-  (declare column-names (TableDef -> List ColumnName))
-  (define (column-names table)
-    (map .name (.columns table)))
-
-  (declare lookup-col! (TableDef -> ColumnName -> ColumnDef))
-  (define (lookup-col! table name)
-    (for col in (.columns table)
-      (when (== (.name col) name)
-        (return col)))
-    (error (<> "Could not find column named " name)))
-
-  (declare basic-column (String -> SqlType -> ColumnDef))
-  (define (basic-column name type)
-    "Create a SQL column definition with default flags:
-* primary key?    = False
-* not nullable?   = True
-* unique?         = False"
-    (ColumnDef name type (make-list)))
-
-  (define-type-alias RowMap (m:Map ColumnName SqlValue))
-
-  (define-instance (Into SqlValue String)
-    (define (into val)
-      (match val
-        ((SqlInt i)
-         (<> "SqlInt " (into i)))
-        ((SqlText s)
-         (<> "SqlText " s))
-        ((SqlBool b)
-         (if b
-             "SqlBool True"
-             "SqlBool False"))
-        ((SqlNull)
-         "SqlNull")))))
-
-(cl:defmacro BelongsTo (our-keys (other-table-name cl:&rest their-keys))
-  "Example: (BelongsTo (\"user-id\" \"project-id\") (\"User\" \"id\" \"project-id\"))"
-  (cl:let ((keypairs (cl:mapcar
-                      (cl:lambda (a b)
-                        `(Tuple ,a ,b))
-                      our-keys
-                      their-keys)))
-    `(BelongsTo_
-      ,other-table-name
-      (make-list ,@keypairs))))
 
 (cl:defmacro column (column-name type column-flags)
   "Construct a column with COLUMN-NAME, TYPE, and COLUMN-FLAGS.
@@ -574,22 +402,6 @@ Example:
 ;;; Row Builder (Persistable -> Sql)
 ;;;
 
-(coalton-toplevel
-  ;; Like above, I think this is a bad idea because it's too tied to an individual DB.
-  (define-instance (Into Integer SqlValue)
-    (define into SqlInt))
-
-  (define-instance (Into String SqlValue)
-    (define into SqlText))
-
-  (define-instance (Into Boolean SqlValue)
-    (define into SqlBool))
-
-  (define-instance (Into :a SqlValue => Into (Optional :a) SqlValue)
-    (define (into a)
-      (match a
-        ((None) SqlNull)
-        ((Some a) (into a))))))
 
 (cl:defmacro build-row (obj cl:&body body)
   "Helper macro for building `to-row` implementations for Persistable instances.
@@ -627,56 +439,6 @@ Example:
                   `(Tuple ,col-name (into (,fn ,obj))))))
     `(m:collect (make-list
                  ,@(cl:mapcar #'col-form body)))))
-
-;;;
-;;; Persistable: For serialization to/from the database
-;;;
-
-(coalton-toplevel
-  (define-class (HasTableName :a)
-    "Allows the user to specify 'User' or '\"User\"' interchangeably in the DSL.
-IMPORTANT: Make sure to wrap external API calls in a macro that wraps the wrap-has-table-name
-macro!"
-    (table-name (:a -> TableName)))
-
-  (define-instance (HasTableName String)
-    (define table-name id))
-
-  (define-instance (Persistable :a => HasTableName (ty:Proxy :a))
-    (define (table-name tbl-prox)
-      (.name (schema tbl-prox)))))
-
-(cl:defmacro wrap-has-table-name (x)
-  "Converts:
-
-(wrap-has-table-name \"User\") => \"User\"
-(wrap-has-table-name User) => (the (ty:Proxy User) ty:Proxy)"
-  (cl:cond
-    ((cl:stringp x)
-     x)
-    ((cl:symbolp x)
-     `(the (ty:Proxy ,x) ty:Proxy))
-    (cl:t
-     (cl:error (cl:format cl:nil "Invalid HasTableName specifier: ~a" x)))))
-
-(cl:defmacro ForeignKey (has-table here-key-there-key-pairs)
-  "ForeignKey flag on a table. Can take either a String or a Persistable name
-as the table, and takes a list of (here-key there-key) pairs for the columns.
-Must specify at least one pair of keys!
-
-Examples:
-  (ForeignKey User ((\"user-id\" \"id\")))
-  (ForeignKey \"User\" ((\"user-id\" \"id\")))
-  (ForeignKey User ((\"user-id\" \"id\")
-                    (\"proj-id\" \"proj-id\")))"
-  (cl:if (cl:null here-key-there-key-pairs)
-    (cl:error "Must supply at least one pair of keys!")
-    `(ForeignKey% (table-name (wrap-has-table-name ,has-table))
-                  (make-list
-                   ,@(cl:mapcar
-                     #'(cl:lambda (pair)
-                         `(Tuple ,(cl:first pair) ,(cl:second pair)))
-                     here-key-there-key-pairs)))))
 
 ;;;
 ;;; MonadDatabase interface
@@ -902,7 +664,7 @@ Important Note: Not used in all queries!"
       ((CompositeUnique c1 cs)
        (build-str
         "UNIQUE (" (join-str ", " (Cons c1 cs)) ")"))
-      ((ForeignKey% foreign-table-name key-pairs)
+      ((ForeignKey_ foreign-table-name key-pairs)
        (let here-keys-sql =
          (build-str "(" (join-str ", " (map tp:fst key-pairs)) ")"))
        (let there-keys-sql =
@@ -1158,6 +920,25 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
 ;;;
 
 (coalton-toplevel
+  (declare relationship-with ((Persistable :a) (Persistable :b) => ty:Proxy :a -> ty:Proxy :b -> Optional Relationship))
+  (define (relationship-with tbl-a tbl-b)
+    "Get the relationship (if any) between TBL-A and TBL-B that contains the foregin keys.
+Only looks for relationships defined on TBL-A! (Remember, relationships should be defined
+on both tables.)"
+    (let schema-a = (schema tbl-a))
+    (let schema-b = (schema tbl-b))
+    (let name-b = (.name schema-b))
+    (for rltn in (.relationships schema-a)
+      (when (and (== name-b (rltn-table-name rltn))
+                 (has-keys? rltn))
+        (return (Some rltn))))
+    (let name-a = (.name schema-a))
+    (for rltn in (.relationships schema-b)
+      (when (and (== name-a (rltn-table-name rltn))
+                 (has-keys? rltn))
+        (return (Some rltn))))
+    None)
+
 
   (declare all-eq (List (Tuple ColumnName SqlValue) -> RowCondition))
   (define (all-eq col-vals)
@@ -1180,7 +961,7 @@ If an intermediate query fails but the entire transaction returns an Ok value, i
        (let child-prox = (ty:proxy-inner (ty:proxy-inner (ty:proxy-of rel-cell))))
        (do
         (rltn <- (relationship-with obj-prox child-prox))
-        ((ForeignKey% other-tbl-name key-pairs) <- (relationship-foreign-key rltn))
+        ((ForeignKey_ other-tbl-name key-pairs) <- (relationship-foreign-key rltn))
         (let all-obj-col-vals = (to-row obj))
         ;; Remember, key-pairs is a List of (Tuple here-key other-key). If we need to retrieve
         ;; the table named in the relationship, that's the "other-key" side. So we'd want to

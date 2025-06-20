@@ -12,6 +12,7 @@
   :components ((:module "src"
                 :components
                 ((:file "utils")
+                 (:file "core")
                  (:file "db")
                  (:file "sqlite"))))
   :description "SQL Database library for Coalton."
