@@ -9,12 +9,14 @@
                "sqlite"
                "coalton"
                "coalton-simple-io")
-  :components ((:module "src"
-                :components
-                ((:file "utils")
-                 (:file "core")
-                 (:file "db")
-                 (:file "sqlite"))))
+  ;; :components ((:module "src"
+  ;;               :components
+  ;;               (
+  ;;                ;; (:file "utils")
+  ;;                ;; (:file "core")
+  ;;                ;; (:file "db")
+  ;;                ;; (:file "sqlite")
+  ;;                ))
   :description "SQL Database library for Coalton."
   :in-order-to ((test-op (test-op "coalton-db/tests"))))
 
@@ -22,9 +24,11 @@
   :author "Jason Walker"
   :license "MIT"
   :depends-on ("coalton-db"
-               "rove")
+               "coalton/testing"
+               "fiasco")
   :components ((:module "tests"
                 :components
-                ((:file "main"))))
+                ((:file "queries")
+                 (:file "package"))))
   :description "Test system for COALTON-DB."
-  :perform (test-op (op c) (symbol-call :rove :run c)))
+  :perform (test-op (op c) (symbol-call '#:coalton-db/tests '#:run-tests)))
