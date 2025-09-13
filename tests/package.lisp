@@ -12,5 +12,5 @@
 
 (cl:defun run-tests ()
   (fiasco:run-package-tests
-   :packages '(#:coalton-db/fiasco-test-package)
+   :packages '(#:coalton-db/tests/queries-fiasco)
    :interactive cl:t))

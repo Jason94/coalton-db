@@ -1,8 +1,35 @@
 (defpackage coalton-db/tests/queries
   (:use #:coalton #:coalton-prelude #:coalton-testing
-        ))
-(in-package :coalton-db/tests/main)
+        #:coalton-db/queries))
+(in-package :coalton-db/tests/queries)
 
 (named-readtables:in-readtable coalton:coalton)
 
-(coalton-fiasco-init #:coalton-db/fiasco-test-package)
+(fiasco:define-test-package #:coalton-db/tests/queries-fiasco)
+(coalton-fiasco-init #:coalton-db/tests/queries-fiasco)
+
+(coalton-toplevel
+  (declare norm (String -> String))
+  (define (norm s)
+    "Return S with every run of whitespace collapsed to a single space."
+    (lisp String (s)
+      (cl-ppcre:regex-replace-all "\\s+" s " "))))
+
+(define-test test-select-constant ()
+  (let (SqlQuery sql-str params) = (to-sql (Select 5)))
+  (is (== (norm "SELECT ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 5))
+          params))
+  (let (SqlQuery sql-str params) = (to-sql (Select "Hello")))
+  (is (== (norm "SELECT ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlText "Hello"))
+          params)))
+
+(define-test test-select-multiple-constants ()
+  (let (SqlQuery sql-str params) = (to-sql (Select 5 "Hello")))
+  (is (== (norm "SELECT ?, ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 5) (SqlText "Hello"))
+          params)))

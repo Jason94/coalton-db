@@ -9,9 +9,10 @@
                "sqlite"
                "coalton"
                "coalton-simple-io")
-  ;; :components ((:module "src"
-  ;;               :components
-  ;;               (
+  :components ((:module "src"
+                :components
+                ((:file "utils")
+                 (:file "queries"))))
   ;;                ;; (:file "utils")
   ;;                ;; (:file "core")
   ;;                ;; (:file "db")
@@ -25,7 +26,8 @@
   :license "MIT"
   :depends-on ("coalton-db"
                "coalton/testing"
-               "fiasco")
+               "fiasco"
+               "cl-ppcre")
   :components ((:module "tests"
                 :components
                 ((:file "queries")
