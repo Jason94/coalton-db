@@ -17,6 +17,8 @@
 
    Query
    Select
+   Values
+   AllCols
    From
 
    to-sql
@@ -24,6 +26,8 @@
    ))
 
 (in-package :coalton-db/queries)
+
+(cl:declaim (cl:optimize (cl:speed 0) (cl:space 0) (cl:debug 3)))
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -57,22 +61,37 @@
     (SqlQuery String (List SqlValue))))
 
 (coalton-toplevel
+  (define-type SelectTarget
+    "Things that can be selected against."
+    (Values% (List SqlValue))
+    AllCols
+    )
+
+  (define-type-alias FromStatement String)
+
   (define-type Query
     "Representation of a SQL query."
-    (Select% (List SqlValue) (Optional String))))
+    (Select% SelectTarget (Optional FromStatement))))
+
+(cl:defmacro Values (cl:&rest vals)
+  "Select literal SQL values."
+  `(Values% (make-list ,@(cl:mapcar (cl:lambda (x)
+                                      `(into ,x))
+                                    vals))))
 
 (cl:defmacro Select (vals cl:&optional from)
   "Select the given selectable objects in a SQL query."
   (cl:let ((from-clause (cl:if from
                           `(Some ,from)
                           `None)))
-    `(Select% (make-list ,@(cl:mapcar (cl:lambda (x)
-                                        `(into ,x))
-                                      vals))
-              ,from-clause)))
+    `(Select% ,vals ,from-clause)))
+
+(coalton (Values 4))
+(coalton (values% (make-list (into "hi"))))
+(coalton (the SqlValue (SqlInt 4)))
 
 (coalton-toplevel
-  (declare From (String -> String))
+  (declare From (String -> FromStatement))
   (define From id))
 
 (coalton-toplevel
@@ -80,8 +99,15 @@
   (define (to-sql qry)
     "Convert a Query object to a SQL string that can be run in a database."
     (match qry
-      ((Select% vals from-qry)
-       (let placeholders = (join-str ", " (map (const "?") vals)))
+      ((Select% select-target from-qry)
+       (let (Tuple select-sql select-params) =
+         (match select-target
+           ((Values% vals)
+            (let placeholders = (join-str ", " (map (const "?") vals)))
+            (let select-sql = (build-str "SELECT " placeholders))
+            (Tuple select-sql vals))
+           ((AllCols)
+            (Tuple "SELECT *" (make-list)))))
        (let from-sql =
          (match from-qry
            ((Some from-table)
@@ -89,5 +115,5 @@
            ((None)
             "")))
        (SqlQuery
-        (build-str "SELECT " placeholders from-sql ";")
-        vals)))))
+        (build-str select-sql from-sql ";")
+        select-params)))))
