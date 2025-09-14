@@ -17,6 +17,7 @@
 
    Query
    Select
+   From
 
    to-sql
    ;;; Library Private
@@ -58,24 +59,35 @@
 (coalton-toplevel
   (define-type Query
     "Representation of a SQL query."
-    (Select% (List SqlValue))))
+    (Select% (List SqlValue) (Optional String))))
 
-(cl:defmacro Select (cl:&rest vals)
+(cl:defmacro Select (vals cl:&optional from)
   "Select the given selectable objects in a SQL query."
-  `(Select% (make-list ,@(cl:mapcar (cl:lambda (x)
-                                      `(into ,x))
-                                    vals))))
-  ;; (declare Select (Into :a SqlValue => :a -> Query))
-  ;; (define (Select val)
-  ;;   "Select the given selectable object in a SQL query."
-  ;;   (Select% (into val)))
+  (cl:let ((from-clause (cl:if from
+                          `(Some ,from)
+                          `None)))
+    `(Select% (make-list ,@(cl:mapcar (cl:lambda (x)
+                                        `(into ,x))
+                                      vals))
+              ,from-clause)))
+
+(coalton-toplevel
+  (declare From (String -> String))
+  (define From id))
 
 (coalton-toplevel
   (declare to-sql (Query -> SqlQuery))
   (define (to-sql qry)
+    "Convert a Query object to a SQL string that can be run in a database."
     (match qry
-      ((Select% vals)
+      ((Select% vals from-qry)
        (let placeholders = (join-str ", " (map (const "?") vals)))
+       (let from-sql =
+         (match from-qry
+           ((Some from-table)
+            (build-str " FROM " from-table))
+           ((None)
+            "")))
        (SqlQuery
-        (build-str "SELECT " placeholders ";")
+        (build-str "SELECT " placeholders from-sql ";")
         vals)))))
