@@ -100,6 +100,8 @@
     (inline)
     (define into Value_))
 
+  ;; NOTE: Everything will be exported with a suffix `_` for consistency of the
+  ;; RowCondition API. Those with % will be wrapped in conversion macros.
   (define-type RowCondition
     "A condition to filter a query."
     True_

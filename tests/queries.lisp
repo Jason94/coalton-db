@@ -133,3 +133,23 @@
           (norm sql-str)))
   (is (== (make-list (SqlInt 123))
           params)))
+
+(define-test test-select-where-multiple-values ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Eq_ (Value 321) (Value 123))))))
+  (is (== (norm "SELECT id FROM test-table WHERE ? = ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 321) (SqlInt 123))
+          params)))
+
+(define-test test-select-where-multiple-values-pg-style-adapter ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test2 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Eq_ (Value 321) (Value 123))))))
+  (is (== (norm "SELECT id FROM test-table WHERE $0 = $1;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 321) (SqlInt 123))
+          params)))
