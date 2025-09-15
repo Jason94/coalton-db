@@ -31,7 +31,11 @@
    Eq_
    Neq_
    Gt_
+   GtEq_
    Lt_
+   LtEq_
+   IsNull_
+   IsNotNull_
 
    Where
 
@@ -112,23 +116,55 @@
     (Eq% RowConditionTarget RowConditionTarget)
     (Neq% RowConditionTarget RowConditionTarget)
     (Gt% RowConditionTarget RowConditionTarget)
-    (Lt% RowConditionTarget RowConditionTarget))
+    (GtEq% RowConditionTarget RowConditionTarget)
+    (Lt% RowConditionTarget RowConditionTarget)
+    (LtEq% RowConditionTarget RowConditionTarget)
+    (IsNull% RowConditionTarget)
+    (IsNotNull% RowConditionTarget))
+
+  (inline)
+  (declare Eq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (define (Eq_ a b)
+    (Eq% (inline (into a)) (inline (into b))))
+
+  (inline)
+  (declare Neq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (define (Neq_ a b)
+    (Neq% (inline (into a)) (inline (into b))))
+
+  (inline)
+  (declare Gt_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (define (Gt_ a b)
+    (Gt% (inline (into a)) (inline (into b))))
+
+  (inline)
+  (declare GtEq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (define (GtEq_ a b)
+    (GtEq% (inline (into a)) (inline (into b))))
+
+  (inline)
+  (declare Lt_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (define (Lt_ a b)
+    (Lt% (inline (into a)) (inline (into b))))
+
+  (inline)
+  (declare LtEq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (define (LtEq_ a b)
+    (LtEq% (inline (into a)) (inline (into b))))
+
+  (inline)
+  (declare IsNull_ (Into :a RowConditionTarget => :a -> RowCondition))
+  (define (IsNull_ a)
+    (IsNull% (inline (into a))))
+
+  (inline)
+  (declare IsNotNull_ (Into :a RowConditionTarget => :a -> RowCondition))
+  (define (IsNotNull_ a)
+    (IsNotNull% (inline (into a))))
 
   (define-type QueryOption
     "Options to modify a query."
     (Where RowCondition)))
-
-(cl:defmacro Eq_ (a b)
-  `(Eq% (into ,a) (into ,b)))
-
-(cl:defmacro Neq_ (a b)
-  `(Neq% (into ,a) (into ,b)))
-
-(cl:defmacro Gt_ (a b)
-  `(Gt% (into ,a) (into ,b)))
-
-(cl:defmacro Lt_ (a b)
-  `(Lt% (into ,a) (into ,b)))
 
 (coalton-toplevel
   (define-type SelectTarget
@@ -219,12 +255,36 @@
        (let (Tuple sql-b params-b) =
          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
        (Tuple (build-str sql-a " > " sql-b) (<> params-a params-b)))
+      ((GtEq% a b)
+       (let (Tuple sql-a params-a) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
+       (let (Tuple sql-b params-b) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
+       (Tuple (build-str sql-a " >= " sql-b) (<> params-a params-b)))
       ((Lt% a b)
        (let (Tuple sql-a params-a) =
          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
        (let (Tuple sql-b params-b) =
          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " < " sql-b) (<> params-a params-b)))))
+       (Tuple (build-str sql-a " < " sql-b) (<> params-a params-b)))
+      ((LtEq% a b)
+       (let (Tuple sql-a params-a) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
+       (let (Tuple sql-b params-b) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
+       (Tuple (build-str sql-a " <= " sql-b) (<> params-a params-b)))
+      ((IsNull% a)
+       (match a
+         ((Col_ col)
+          (Tuple (build-str col " IS NULL") (make-list)))
+         ((Value_ _)
+          (error "Cannot check null against a value."))))
+      ((IsNotNull% a)
+       (match a
+         ((Col_ col)
+          (Tuple (build-str col " IS NOT NULL") (make-list)))
+         ((Value_ _)
+          (error "Cannot check null against a value."))))))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
