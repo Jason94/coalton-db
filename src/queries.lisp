@@ -23,6 +23,13 @@
    DatabaseAdapter
    next-placeholder
 
+   RowCondition
+   True_
+   False_
+
+   RowCondition
+   Where
+
    Query
    Select
    Values
@@ -74,6 +81,15 @@
     (next-placeholder (ty:Proxy :a -> Optional String -> String))))
 
 (coalton-toplevel
+  (define-type RowCondition
+    "A condition to filter a query."
+    True_
+    False_)
+
+  (define-type QueryOption
+    "Options to modify a query."
+    (Where RowCondition))
+
   (define-type SelectTarget
     "Things that can be selected against."
     (Values% (List SqlValue))
@@ -85,7 +101,7 @@
 
   (define-type Query
     "Representation of a SQL query."
-    (Select% SelectTarget (Optional FromStatement))))
+    (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))))
 
 (cl:defmacro Values (cl:&rest vals)
   "Select literal SQL values."
@@ -97,12 +113,15 @@
   "Select columns."
   `(Cols% (make-list ,@cols)))
 
-(cl:defmacro Select (vals cl:&optional from)
+(cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
   (cl:let ((from-clause (cl:if from
                           `(Some ,from)
+                          `None))
+           (opts-clause (cl:if query-opts
+                          `(Some ,(cl:first query-opts))
                           `None)))
-    `(Select% ,vals ,from-clause)))
+    `(Select% ,vals ,from-clause ,opts-clause)))
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -129,7 +148,7 @@
     "Convert a Query object to a SQL string that can be run in a database."
     (let last-param-str = (the (c:Cell (Optional String)) (c:new None)))
     (match qry
-      ((Select% select-target from-qry)
+      ((Select% select-target from-qry query-opts)
        (let (Tuple select-sql select-params) =
          (match select-target
            ((Values% vals)
@@ -147,6 +166,12 @@
             (build-str " FROM " from-table))
            ((None)
             "")))
+       (let opts-sql =
+         (match query-opts
+           ((Some _)
+            " WHERE TRUE")
+           ((None)
+            "")))
        (SqlQuery
-        (build-str select-sql from-sql ";")
+        (build-str select-sql from-sql opts-sql ";")
         select-params)))))

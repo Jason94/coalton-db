@@ -97,3 +97,13 @@
           (norm sql-str)))
   (is (== (make-list)
           params)))
+
+(define-test test-select-where-true ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where True_))))
+  (is (== (norm "SELECT id FROM test-table WHERE TRUE;")
+          (norm sql-str)))
+  (is (== (make-list)
+          params)))
