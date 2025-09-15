@@ -98,7 +98,7 @@
   (is (== (make-list)
           params)))
 
-(define-test test-select-where-true ()
+(define-test test-select-where-true-or-false ()
   (let (SqlQuery sql-str params) =
     (to-sql-test1 (Select (Cols "id")
                           (From "test-table")
@@ -106,4 +106,30 @@
   (is (== (norm "SELECT id FROM test-table WHERE TRUE;")
           (norm sql-str)))
   (is (== (make-list)
+          params))
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where False_))))
+  (is (== (norm "SELECT id FROM test-table WHERE FALSE;")
+          (norm sql-str)))
+  (is (== (make-list)
+          params)))
+
+(define-test test-select-where-col-equal ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Eq_ "id" (Value 123))))))
+  (is (== (norm "SELECT id FROM test-table WHERE id = ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 123))
+          params))
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Eq_ (Value 123) "id")))))
+  (is (== (norm "SELECT id FROM test-table WHERE ? = id;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 123))
           params)))

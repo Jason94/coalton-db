@@ -17,6 +17,7 @@
    SqlText
    SqlBool
    SqlNull
+   Value
 
    SqlQuery
 
@@ -24,10 +25,11 @@
    next-placeholder
 
    RowCondition
+   Value
    True_
    False_
+   Eq_
 
-   RowCondition
    Where
 
    Query
@@ -57,6 +59,10 @@
     (SqlBool Boolean)
     SqlNull)
 
+  (inline)
+  (declare Value (Into :a SqlValue => :a -> SqlValue))
+  (define Value into)
+
   (define-instance (Into Integer SqlValue)
     (define into SqlInt))
 
@@ -81,15 +87,33 @@
     (next-placeholder (ty:Proxy :a -> Optional String -> String))))
 
 (coalton-toplevel
+  (define-type RowConditionTarget
+    "A column/value in a WHERE/etc clause."
+    (Col_ String)
+    (Value_ SqlValue))
+
+  (define-instance (Into String RowConditionTarget)
+    (inline)
+    (define into Col_))
+
+  (define-instance (Into SqlValue RowConditionTarget)
+    (inline)
+    (define into Value_))
+
   (define-type RowCondition
     "A condition to filter a query."
     True_
-    False_)
+    False_
+    (Eq% RowConditionTarget RowConditionTarget))
 
   (define-type QueryOption
     "Options to modify a query."
-    (Where RowCondition))
+    (Where RowCondition)))
 
+(cl:defmacro Eq_ (a b)
+  `(Eq% (into ,a) (into ,b)))
+
+(coalton-toplevel
   (define-type SelectTarget
     "Things that can be selected against."
     (Values% (List SqlValue))
@@ -143,6 +167,30 @@
     (c:write! last-param-str (Some result))
     result)
 
+  (declare row-cnd-tgt-to-sql! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> RowConditionTarget
+                                                -> (Tuple String (List SqlValue))))
+  (define (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str tgt)
+    (match tgt
+      ((Col_ col-name)
+       (Tuple col-name (make-list)))
+      ((Value_ val)
+       (Tuple (get-next-placeholder! db-adptr-proxy last-param-str) (make-list val)))))
+
+  (declare row-condition-to-sql! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> RowCondition
+                                                  -> (Tuple String (List SqlValue))))
+  (define (row-condition-to-sql! db-adptr-proxy last-param-str row-cnd)
+    (match row-cnd
+      ((True_)
+       (Tuple "TRUE" (make-list)))
+      ((False_)
+       (Tuple "FALSE" (make-list)))
+      ((Eq% a b)
+       (let (Tuple sql-a params-a) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
+       (let (Tuple sql-b params-b) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
+       (Tuple (build-str sql-a " = " sql-b) (<> params-a params-b)))))
+
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
     "Convert a Query object to a SQL string that can be run in a database."
@@ -166,12 +214,16 @@
             (build-str " FROM " from-table))
            ((None)
             "")))
-       (let opts-sql =
+       (let (Tuple opts-sql opts-params) =
          (match query-opts
-           ((Some _)
-            " WHERE TRUE")
+           ((Some (Where cnd))
+            (let (Tuple cnd-sql cnd-params) =
+              (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
+            (Tuple
+             (build-str " WHERE " cnd-sql)
+             cnd-params))
            ((None)
-            "")))
+            (Tuple "" (make-list)))))
        (SqlQuery
         (build-str select-sql from-sql opts-sql ";")
-        select-params)))))
+        (<> select-params opts-params))))))
