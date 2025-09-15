@@ -4,7 +4,9 @@
    #:coalton
    #:coalton-prelude
    #:coalton-db/util)
-  (:local-nicknames)
+  (:local-nicknames
+   (:ty #:coalton-library/types)
+   (:itr #:coalton-library/iterator))
   (:export
    ;;; Library Public
    SqlValue
@@ -15,10 +17,14 @@
 
    SqlQuery
 
+   DatabaseAdapter
+   generate-placeholders
+
    Query
    Select
    Values
    AllCols
+   Cols
    From
 
    to-sql
@@ -61,10 +67,15 @@
     (SqlQuery String (List SqlValue))))
 
 (coalton-toplevel
+  (define-class (DatabaseAdapter :a)
+    (generate-placeholders (ty:Proxy :a -> List SqlValue -> List String))))
+
+(coalton-toplevel
   (define-type SelectTarget
     "Things that can be selected against."
     (Values% (List SqlValue))
     AllCols
+    (Cols% (List String))
     )
 
   (define-type-alias FromStatement String)
@@ -79,6 +90,10 @@
                                       `(into ,x))
                                     vals))))
 
+(cl:defmacro Cols (cl:&rest cols)
+  "Select columns."
+  `(Cols% (make-list ,@cols)))
+
 (cl:defmacro Select (vals cl:&optional from)
   "Select the given selectable objects in a SQL query."
   (cl:let ((from-clause (cl:if from
@@ -86,34 +101,38 @@
                           `None)))
     `(Select% ,vals ,from-clause)))
 
-(coalton (Values 4))
-(coalton (values% (make-list (into "hi"))))
-(coalton (the SqlValue (SqlInt 4)))
-
 (coalton-toplevel
   (declare From (String -> FromStatement))
   (define From id))
 
 (coalton-toplevel
-  (declare to-sql (Query -> SqlQuery))
-  (define (to-sql qry)
+  (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
+  (define (to-sql db-adptr-proxy qry)
     "Convert a Query object to a SQL string that can be run in a database."
     (match qry
       ((Select% select-target from-qry)
-       (let (Tuple select-sql select-params) =
+       ;; The SQL chunks are the things to be joined by the generated placeholders
+       (let (Tuple select-sql-chunks select-params) =
          (match select-target
            ((Values% vals)
-            (let placeholders = (join-str ", " (map (const "?") vals)))
-            (let select-sql = (build-str "SELECT " placeholders))
+            (let placeholder-commas = (itr:collect! (itr:repeat-for ", " (max 0 (- (length vals) 1)))))
+            (let select-sql = (Cons "SELECT " placeholder-commas))
             (Tuple select-sql vals))
            ((AllCols)
-            (Tuple "SELECT *" (make-list)))))
+            (Tuple (make-list "SELECT *") (make-list)))
+           ((Cols% cols)
+            (Tuple (make-list (build-str "SELECT " (join-str ", " cols))) (make-list)))))
        (let from-sql =
          (match from-qry
            ((Some from-table)
             (build-str " FROM " from-table))
            ((None)
             "")))
+       (let placeholders = (generate-placeholders db-adptr-proxy select-params))
+       (let all-sql-chunks = (<> select-sql-chunks (make-list from-sql)))
+       (let sql-chunks-and-placeholders = (the (List String) (itr:collect! (itr:interleave! (itr:into-iter all-sql-chunks)
+                                                                                            (itr:into-iter placeholders)))))
+       (let all-sql = (fold <> "" sql-chunks-and-placeholders))
        (SqlQuery
-        (build-str select-sql from-sql ";")
+        (build-str all-sql ";")
         select-params)))))
