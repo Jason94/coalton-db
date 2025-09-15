@@ -313,3 +313,26 @@
           (norm sql-str)))
   (is (== (make-list)
           params)))
+
+(define-test test-select-where-and-two-cols ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Select (Cols "id")
+             (From "test-table")
+             (Where (And_ (Eq_ "id" (Value 123))
+                          (Eq_ "name" (Value "Alice")))))))
+  (is (== (norm "SELECT id FROM test-table WHERE (id = ?) AND (name = ?);")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 123) (SqlText "Alice"))
+          params)))
+
+(define-test test-select-where-not ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Select (Cols "id")
+             (From "test-table")
+             (Where (Not_ (Eq_ "id" (Value 5)))))))
+  (is (== (norm "SELECT id FROM test-table WHERE NOT id = ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 5))
+          params)))

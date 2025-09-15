@@ -36,6 +36,8 @@
    LtEq_
    IsNull_
    IsNotNull_
+   Not_
+   And_
 
    Where
 
@@ -120,7 +122,9 @@
     (Lt% RowConditionTarget RowConditionTarget)
     (LtEq% RowConditionTarget RowConditionTarget)
     (IsNull% RowConditionTarget)
-    (IsNotNull% RowConditionTarget))
+    (IsNotNull% RowConditionTarget)
+    (Not_ RowCondition)
+    (And_ RowCondition RowCondition))
 
   (inline)
   (declare Eq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
@@ -284,7 +288,17 @@
          ((Col_ col)
           (Tuple (build-str col " IS NOT NULL") (make-list)))
          ((Value_ _)
-          (error "Cannot check null against a value."))))))
+          (error "Cannot check null against a value."))))
+      ((Not_ cnd)
+       (let (Tuple cnd-sql cnd-params) =
+         (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
+       (Tuple (build-str "NOT " cnd-sql) cnd-params))
+      ((And_ a b)
+       (let (Tuple sql-a params-a) =
+         (row-condition-to-sql! db-adptr-proxy last-param-str a))
+       (let (Tuple sql-b params-b) =
+         (row-condition-to-sql! db-adptr-proxy last-param-str b))
+       (Tuple (build-str "(" sql-a ") AND (" sql-b ")") (<> params-a params-b)))))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
