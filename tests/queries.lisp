@@ -2,7 +2,9 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/queries)
   (:local-nicknames
+   (:opt #:coalton-library/optional)
    (:ty #:coalton-library/types)
+   (:s #:coalton-library/string)
    (:itr #:coalton-library/iterator)))
 (in-package :coalton-db/tests/queries)
 
@@ -26,8 +28,8 @@
 
   (define-instance (DatabaseAdapter TestAdapter1)
     ;; TestAdapter1 uses a constant placeholder, '?', like SQLite
-    (define (generate-placeholders _ placeholders)
-      (map (const "?") placeholders)))
+    (define (next-placeholder _ _)
+      "?"))
 
   (define to-sql-test1 (to-sql (the (ty:Proxy TestAdapter1) ty:Proxy)))
 
@@ -35,10 +37,16 @@
 
   (define-instance (DatabaseAdapter TestAdapter2)
     ;; TestAdapter2 uses an index-based placeholder - $1, $2, etc - like Postgres
-    (define (generate-placeholders _ placeholders)
-      (itr:collect! (map (fn (n)
-                           (<> "$" (into n)))
-                         (itr:range-increasing 1 0 (length placeholders))))))
+    (define (next-placeholder _ last-param-str?)
+      (match last-param-str?
+        ((None)
+         "$0")
+        ((Some last-param-str)
+         (let last-n = (opt:from-some "Invalid last param provided"
+                                      (do
+                                       (last-num-str <- (s:strip-prefix "$" last-param-str))
+                                       (s:parse-int last-num-str))))
+         (<> "$" (into (+ 1 last-n)))))))
 
   (define to-sql-test2 (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy))))
 

@@ -5,6 +5,9 @@
    #:coalton-prelude
    #:coalton-db/util)
   (:local-nicknames
+   (:c #:coalton-library/cell)
+   (:lp #:coalton-library/experimental/loops)
+   (:s #:coalton-library/string)
    (:ty #:coalton-library/types)
    (:itr #:coalton-library/iterator))
   (:export
@@ -18,7 +21,7 @@
    SqlQuery
 
    DatabaseAdapter
-   generate-placeholders
+   next-placeholder
 
    Query
    Select
@@ -68,7 +71,7 @@
 
 (coalton-toplevel
   (define-class (DatabaseAdapter :a)
-    (generate-placeholders (ty:Proxy :a -> List SqlValue -> List String))))
+    (next-placeholder (ty:Proxy :a -> Optional String -> String))))
 
 (coalton-toplevel
   (define-type SelectTarget
@@ -106,33 +109,44 @@
   (define From id))
 
 (coalton-toplevel
+  (declare get-placeholders! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> UFix -> List String))
+  (define (get-placeholders! db-adptr-proxy last-param-str n)
+    "Get the next `n` placeholder strings. Will set `last-param-str` to the end of the returned list."
+    (lp:collecttimes (_ n)
+      (let next-param-str = (next-placeholder db-adptr-proxy (c:read last-param-str)))
+      (c:write! last-param-str (Some next-param-str))
+      next-param-str))
+
+  (declare get-next-placeholder! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> String))
+  (define (get-next-placeholder! db-adptr-proxy last-param-str)
+    "Get the next placeholder string, set it as the new `last-param-str`, and return."
+    (let result = (next-placeholder db-adptr-proxy (c:read last-param-str)))
+    (c:write! last-param-str (Some result))
+    result)
+
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
     "Convert a Query object to a SQL string that can be run in a database."
+    (let last-param-str = (the (c:Cell (Optional String)) (c:new None)))
     (match qry
       ((Select% select-target from-qry)
-       ;; The SQL chunks are the things to be joined by the generated placeholders
-       (let (Tuple select-sql-chunks select-params) =
+       (let (Tuple select-sql select-params) =
          (match select-target
            ((Values% vals)
-            (let placeholder-commas = (itr:collect! (itr:repeat-for ", " (max 0 (- (length vals) 1)))))
-            (let select-sql = (Cons "SELECT " placeholder-commas))
+            (let placeholders = (join-str ", " (map (fn (_) (get-next-placeholder! db-adptr-proxy last-param-str))
+                                                    vals)))
+            (let select-sql = (build-str "SELECT " placeholders))
             (Tuple select-sql vals))
            ((AllCols)
-            (Tuple (make-list "SELECT *") (make-list)))
+            (Tuple "SELECT *" (make-list)))
            ((Cols% cols)
-            (Tuple (make-list (build-str "SELECT " (join-str ", " cols))) (make-list)))))
+            (Tuple (build-str "SELECT " (join-str ", " cols)) (make-list)))))
        (let from-sql =
          (match from-qry
            ((Some from-table)
             (build-str " FROM " from-table))
            ((None)
             "")))
-       (let placeholders = (generate-placeholders db-adptr-proxy select-params))
-       (let all-sql-chunks = (<> select-sql-chunks (make-list from-sql)))
-       (let sql-chunks-and-placeholders = (the (List String) (itr:collect! (itr:interleave! (itr:into-iter all-sql-chunks)
-                                                                                            (itr:into-iter placeholders)))))
-       (let all-sql = (fold <> "" sql-chunks-and-placeholders))
        (SqlQuery
-        (build-str all-sql ";")
+        (build-str select-sql from-sql ";")
         select-params)))))
