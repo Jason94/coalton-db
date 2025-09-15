@@ -29,6 +29,7 @@
    True_
    False_
    Eq_
+   Neq_
 
    Where
 
@@ -106,7 +107,8 @@
     "A condition to filter a query."
     True_
     False_
-    (Eq% RowConditionTarget RowConditionTarget))
+    (Eq% RowConditionTarget RowConditionTarget)
+    (Neq% RowConditionTarget RowConditionTarget))
 
   (define-type QueryOption
     "Options to modify a query."
@@ -114,6 +116,9 @@
 
 (cl:defmacro Eq_ (a b)
   `(Eq% (into ,a) (into ,b)))
+
+(cl:defmacro Neq_ (a b)
+  `(Neq% (into ,a) (into ,b)))
 
 (coalton-toplevel
   (define-type SelectTarget
@@ -191,7 +196,13 @@
          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
        (let (Tuple sql-b params-b) =
          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " = " sql-b) (<> params-a params-b)))))
+       (Tuple (build-str sql-a " = " sql-b) (<> params-a params-b)))
+      ((Neq% a b)
+       (let (Tuple sql-a params-a) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
+       (let (Tuple sql-b params-b) =
+         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
+       (Tuple (build-str sql-a " <> " sql-b) (<> params-a params-b)))))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)

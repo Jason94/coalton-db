@@ -153,3 +153,31 @@
           (norm sql-str)))
   (is (== (make-list (SqlInt 321) (SqlInt 123))
           params)))
+
+(define-test test-select-where-col-not-equal ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Neq_ "id" (Value 123))))))
+  (is (== (norm "SELECT id FROM test-table WHERE id <> ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 123))
+          params))
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Neq_ (Value 123) "id")))))
+  (is (== (norm "SELECT id FROM test-table WHERE ? <> id;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 123))
+          params)))
+
+(define-test test-select-where-multiple-values-not-equal ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1 (Select (Cols "id")
+                          (From "test-table")
+                          (Where (Neq_ (Value 321) (Value 123))))))
+  (is (== (norm "SELECT id FROM test-table WHERE ? <> ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 321) (SqlInt 123))
+          params)))
