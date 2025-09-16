@@ -50,6 +50,7 @@
    Delete
    Insert
    IntoTable
+   Update
 
    SqlQuery
    to-sql
@@ -215,6 +216,8 @@
 (coalton-toplevel
   (define-type-alias FromStatement String)
 
+  (define-type-alias SqlTable String)
+
   (define-type SelectTarget
     "Things that can be selected against."
     (Values% (List SqlValue))
@@ -237,11 +240,15 @@
   (define (into-stmt->tbl-name (IntoTable tbl-name))
     tbl-name)
 
+  (define-type SetTarget
+    (SetTarget SqlColumn SqlValue))
+
   (define-type Query
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))
-    (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))))
+    (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))
+    (Update% SqlTable (List SetTarget))))
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
@@ -266,6 +273,15 @@
                                `(Some ,cols)
                                `None)))
     `(Insert% ,into-stmt ,values ,cols-clause)))
+
+(cl:defmacro Update (tbl set-tuples)
+  `(Update% ,tbl (make-list
+                 ,@(cl:mapcar (cl:lambda (set-tuple)
+                                `(SetTarget
+                                  (into ,(cl:first set-tuple))
+                                  (into ,(cl:second set-tuple))))
+                              set-tuples))))
+
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -412,4 +428,15 @@
                                     (into-stmt->tbl-name into-stmt)
                                     cols-sql
                                     " VALUES (" placeholders ");"))
-       (SqlQuery insert-sql insert-vals)))))
+       (SqlQuery insert-sql insert-vals))
+      ((Update% tbl set-targets)
+       (let set-sqls =
+         (map (fn ((SetTarget col _))
+                (build-str (col-to-sql col) " = "
+                           (get-next-placeholder! db-adptr-proxy last-param-str)))
+              set-targets))
+       (let set-sql = (join-str ", " set-sqls))
+       (let set-vals = (map (fn ((SetTarget _ val)) val) set-targets))
+       (SqlQuery
+        (build-str "UPDATE " tbl " SET " set-sql ";")
+        set-vals)))))

@@ -427,3 +427,17 @@
           (norm sql-str)))
   (is (== (make-list (SqlInt 1) (SqlText "Alice"))
           params)))
+
+;;;
+;;; UPDATE Tests
+;;;
+
+(define-test test-update-set-single-col ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Update "test-table"
+             (("name" "Bob")))))
+  (is (== (norm "UPDATE test-table SET name = ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlText "Bob"))
+          params)))
