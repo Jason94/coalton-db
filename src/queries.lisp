@@ -48,6 +48,8 @@
    AllCols
    From
    Delete
+   Insert
+   IntoTable
 
    SqlQuery
    to-sql
@@ -208,6 +210,8 @@
     (Where RowCondition)))
 
 (coalton-toplevel
+  (define-type-alias FromStatement String)
+
   (define-type SelectTarget
     "Things that can be selected against."
     (Values% (List SqlValue))
@@ -218,12 +222,19 @@
     (inline)
     (define into Values%))
 
-  (define-type-alias FromStatement String)
+  ;; TODO: Create a table alias, at least...
+  (define-type IntoStatement
+    (IntoTable String))
+
+  (declare into-stmt->tbl-name (IntoStatement -> String))
+  (define (into-stmt->tbl-name (IntoTable tbl-name))
+    tbl-name)
 
   (define-type Query
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
-    (Delete% FromStatement (Optional QueryOption))))
+    (Delete% FromStatement (Optional QueryOption))
+    (Insert% IntoStatement (List SqlValue))))
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
@@ -241,6 +252,10 @@
                            `(Some ,query-opts)
                            `None)))
     `(Delete% ,from ,opts-clause)))
+
+(cl:defmacro Insert (into-stmt values)
+  "Insert values into the given table in a SQL query."
+  `(Insert% ,into-stmt ,values))
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -372,4 +387,11 @@
        (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
         (build-str "DELETE FROM " from-qry opts-sql ";")
-        opts-params)))))
+        opts-params))
+      ((Insert% into-stmt insert-vals)
+       (let placeholders = (join-str ", " (map (fn (_) (get-next-placeholder! db-adptr-proxy last-param-str))
+                                               insert-vals)))
+       (let insert-sql = (build-str "INSERT INTO "
+                                    (into-stmt->tbl-name into-stmt)
+                                    " VALUES (" placeholders ");"))
+       (SqlQuery insert-sql insert-vals)))))
