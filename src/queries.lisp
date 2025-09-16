@@ -236,69 +236,44 @@
   (declare row-condition-to-sql! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> RowCondition
                                                   -> (Tuple String (List SqlValue))))
   (define (row-condition-to-sql! db-adptr-proxy last-param-str row-cnd)
+    (let const-op = (fn (val) (Tuple val (make-list))))
+    (let bin-op =
+      (fn (op a b)
+        (let (Tuple sql-a params-a) =
+          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
+        (let (Tuple sql-b params-b) =
+          (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
+        (Tuple (build-str sql-a " " op " " sql-b) (<> params-a params-b))))
+    (let col-suffix =
+      (fn (a suffix err-msg)
+        (match a
+          ((Col_ col)
+           (Tuple (build-str col " " suffix) (make-list)))
+          ((Value_ _)
+           (error err-msg)))))
+    (let recur-bin-op =
+      (fn (op a b)
+        (let (Tuple sql-a params-a) =
+          (row-condition-to-sql! db-adptr-proxy last-param-str a))
+        (let (Tuple sql-b params-b) =
+          (row-condition-to-sql! db-adptr-proxy last-param-str b))
+        (Tuple (build-str "(" sql-a ") " op " (" sql-b ")") (<> params-a params-b))))
     (match row-cnd
-      ((True_)
-       (Tuple "TRUE" (make-list)))
-      ((False_)
-       (Tuple "FALSE" (make-list)))
-      ((Eq% a b)
-       (let (Tuple sql-a params-a) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " = " sql-b) (<> params-a params-b)))
-      ((Neq% a b)
-       (let (Tuple sql-a params-a) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " <> " sql-b) (<> params-a params-b)))
-      ((Gt% a b)
-       (let (Tuple sql-a params-a) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " > " sql-b) (<> params-a params-b)))
-      ((GtEq% a b)
-       (let (Tuple sql-a params-a) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " >= " sql-b) (<> params-a params-b)))
-      ((Lt% a b)
-       (let (Tuple sql-a params-a) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " < " sql-b) (<> params-a params-b)))
-      ((LtEq% a b)
-       (let (Tuple sql-a params-a) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str sql-a " <= " sql-b) (<> params-a params-b)))
-      ((IsNull% a)
-       (match a
-         ((Col_ col)
-          (Tuple (build-str col " IS NULL") (make-list)))
-         ((Value_ _)
-          (error "Cannot check null against a value."))))
-      ((IsNotNull% a)
-       (match a
-         ((Col_ col)
-          (Tuple (build-str col " IS NOT NULL") (make-list)))
-         ((Value_ _)
-          (error "Cannot check null against a value."))))
+      ((True_)        (const-op "TRUE"))
+      ((False_)       (const-op "FALSE"))
+      ((Eq% a b)      (bin-op "=" a b))
+      ((Neq% a b)     (bin-op "<>" a b))
+      ((Gt% a b)      (bin-op ">" a b))
+      ((GtEq% a b)    (bin-op ">=" a b))
+      ((Lt% a b)      (bin-op "<" a b))
+      ((LtEq% a b)    (bin-op "<=" a b))
+      ((IsNull% a)    (col-suffix a "IS NULL" "Cannot check null against a value."))
+      ((IsNotNull% a) (col-suffix a "IS NOT NULL" "Cannot check null against a value."))
       ((Not_ cnd)
        (let (Tuple cnd-sql cnd-params) =
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
        (Tuple (build-str "NOT " cnd-sql) cnd-params))
-      ((And_ a b)
-       (let (Tuple sql-a params-a) =
-         (row-condition-to-sql! db-adptr-proxy last-param-str a))
-       (let (Tuple sql-b params-b) =
-         (row-condition-to-sql! db-adptr-proxy last-param-str b))
-       (Tuple (build-str "(" sql-a ") AND (" sql-b ")") (<> params-a params-b)))))
+      ((And_ a b)     (recur-bin-op "AND" a b))))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
