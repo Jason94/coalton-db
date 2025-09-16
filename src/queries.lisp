@@ -248,7 +248,7 @@
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))
     (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))
-    (Update% SqlTable (List SetTarget))))
+    (Update% SqlTable (List SetTarget) (Optional QueryOption))))
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
@@ -274,14 +274,20 @@
                                `None)))
     `(Insert% ,into-stmt ,values ,cols-clause)))
 
-(cl:defmacro Update (tbl set-tuples)
-  `(Update% ,tbl (make-list
-                 ,@(cl:mapcar (cl:lambda (set-tuple)
-                                `(SetTarget
-                                  (into ,(cl:first set-tuple))
-                                  (into ,(cl:second set-tuple))))
-                              set-tuples))))
-
+(cl:defmacro Update (tbl set-tuples cl:&rest query-opts)
+  "Update values in the given table in a SQL query."
+  (cl:let ((opts-clause (cl:if query-opts
+                           `(Some ,(cl:first query-opts))
+                           `None)))
+  `(Update%
+    ,tbl
+    (make-list
+     ,@(cl:mapcar (cl:lambda (set-tuple)
+                    `(SetTarget
+                      (into ,(cl:first set-tuple))
+                      (into ,(cl:second set-tuple))))
+                  set-tuples))
+    ,opts-clause)))
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -429,7 +435,7 @@
                                     cols-sql
                                     " VALUES (" placeholders ");"))
        (SqlQuery insert-sql insert-vals))
-      ((Update% tbl set-targets)
+      ((Update% tbl set-targets query-opts)
        (let set-sqls =
          (map (fn ((SetTarget col _))
                 (build-str (col-to-sql col) " = "
@@ -437,6 +443,7 @@
               set-targets))
        (let set-sql = (join-str ", " set-sqls))
        (let set-vals = (map (fn ((SetTarget _ val)) val) set-targets))
+       (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
-        (build-str "UPDATE " tbl " SET " set-sql ";")
-        set-vals)))))
+        (build-str "UPDATE " tbl " SET " set-sql opts-sql ";")
+        (<> set-vals opts-params))))))

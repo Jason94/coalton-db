@@ -441,3 +441,38 @@
           (norm sql-str)))
   (is (== (make-list (SqlText "Bob"))
           params)))
+
+(define-test test-update-set-multiple-cols ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Update "test-table"
+             (("name" "Bob")
+              ("id" 1)))))
+  (is (== (norm "UPDATE test-table SET name = ?, id = ?;")
+          (norm sql-str)))
+  (is (== (make-list (SqlText "Bob") (SqlInt 1))
+          params)))
+
+(define-test test-update-set-multiple-cols-pg-style-adapter ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test2
+     (Update "test-table"
+             (("name" "Bob")
+              ("id" 1)))))
+  (is (== (norm "UPDATE test-table SET name = $0, id = $1;")
+          (norm sql-str)))
+  (is (== (make-list (SqlText "Bob") (SqlInt 1))
+          params)))
+
+(define-test test-update-set-multiple-cols-where ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Update "test-table"
+             (("name" "Bob")
+              ("id" 1))
+             (Where (And_ (GtEq_ "id" (Value 10))
+                          (IsNull_ "name"))))))
+  (is (== (norm "UPDATE test-table SET name = ?, id = ? WHERE (id >= ?) AND (name IS NULL);")
+          (norm sql-str)))
+  (is (== (make-list (SqlText "Bob") (SqlInt 1) (SqlInt 10))
+          params)))
