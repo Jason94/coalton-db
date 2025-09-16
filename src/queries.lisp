@@ -290,6 +290,17 @@
   (define (to-sql db-adptr-proxy qry)
     "Convert a Query object to a SQL string that can be run in a database."
     (let last-param-str = (the (c:Cell (Optional String)) (c:new None)))
+    (let query-opts-to-sql =
+      (fn (query-opts)
+        (match query-opts
+          ((Some (Where cnd))
+           (let (Tuple cnd-sql cnd-params) =
+             (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
+           (Tuple
+            (build-str " WHERE " cnd-sql)
+            cnd-params))
+          ((None)
+           (Tuple "" (make-list))))))
     (match qry
       ((Select% select-target from-qry query-opts)
        (let (Tuple select-sql select-params) =
@@ -309,30 +320,12 @@
             (build-str " FROM " from-table))
            ((None)
             "")))
-       (let (Tuple opts-sql opts-params) =
-         (match query-opts
-           ((Some (Where cnd))
-            (let (Tuple cnd-sql cnd-params) =
-              (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
-            (Tuple
-             (build-str " WHERE " cnd-sql)
-             cnd-params))
-           ((None)
-            (Tuple "" (make-list)))))
+       (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
         (build-str select-sql from-sql opts-sql ";")
         (<> select-params opts-params)))
       ((Delete% from-qry query-opts)
-       (let (Tuple opts-sql opts-params) =
-         (match query-opts
-           ((Some (Where cnd))
-            (let (Tuple cnd-sql cnd-params) =
-              (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
-            (Tuple
-             (build-str " WHERE " cnd-sql)
-             cnd-params))
-           ((None)
-            (Tuple "" (make-list)))))
+       (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
         (build-str "DELETE FROM " from-qry opts-sql ";")
         opts-params)))))
