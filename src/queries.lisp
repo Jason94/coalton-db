@@ -23,6 +23,8 @@
    Value
    Values
 
+   Cols
+
    RowCondition
    Value
    True_
@@ -44,7 +46,6 @@
    Query
    Select
    AllCols
-   Cols
    From
    Delete
 
@@ -106,6 +107,29 @@
     (make-list ,@(cl:mapcar (cl:lambda (x)
                               `(into ,x))
                             vals))))
+
+;;;
+;;; Columns
+;;;
+
+(coalton-toplevel
+  (define-type SqlColumn
+    (LiteralColumn% String))
+
+  (define-instance (Into String SqlColumn)
+    (inline)
+    (define into LiteralColumn%)))
+
+(cl:defmacro Cols (cl:&rest cols)
+  "SQL columns."
+  `(Cols% (make-list ,@(cl:mapcar (cl:lambda (col-clause)
+                                    `(into ,col-clause))
+                                  cols))))
+
+
+;;;
+;;; Row Conditions
+;;;
 
 (coalton-toplevel
   (define-type RowConditionTarget
@@ -188,7 +212,7 @@
     "Things that can be selected against."
     (Values% (List SqlValue))
     AllCols
-    (Cols% (List String)))
+    (Cols% (List SqlColumn)))
 
   (define-instance (Into (List SqlValue) SelectTarget)
     (inline)
@@ -200,10 +224,6 @@
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))))
-
-(cl:defmacro Cols (cl:&rest cols)
-  "Select columns."
-  `(Cols% (make-list ,@cols)))
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
@@ -226,6 +246,10 @@
   (declare From (String -> FromStatement))
   (define From id))
 
+;;;
+;;; Compile Query -> SQL
+;;;
+
 (coalton-toplevel
   (declare get-placeholders! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> UFix -> List String))
   (define (get-placeholders! db-adptr-proxy last-param-str n)
@@ -241,6 +265,12 @@
     (let result = (next-placeholder db-adptr-proxy (c:read last-param-str)))
     (c:write! last-param-str (Some result))
     result)
+
+  (declare col-to-sql (SqlColumn -> String))
+  (define (col-to-sql col)
+    (match col
+      ((LiteralColumn% col-name)
+       col-name)))
 
   (declare row-cnd-tgt-to-sql! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> RowConditionTarget
                                                 -> (Tuple String (List SqlValue))))
@@ -325,7 +355,9 @@
            ((AllCols)
             (Tuple "SELECT *" (make-list)))
            ((Cols% cols)
-            (Tuple (build-str "SELECT " (join-str ", " cols)) (make-list)))))
+            (Tuple (build-str "SELECT "
+                              (join-str ", " (map col-to-sql cols)))
+                   (make-list)))))
        (let from-sql =
          (match from-qry
            ((Some from-table)
