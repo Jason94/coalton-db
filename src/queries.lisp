@@ -180,6 +180,10 @@
     AllCols
     (Cols% (List String)))
 
+  (define-instance (Into (List SqlValue) SelectTarget)
+    (inline)
+    (define into Values%))
+
   (define-type-alias FromStatement String)
 
   (define-type Query
@@ -188,10 +192,11 @@
     (Delete% FromStatement (Optional QueryOption))))
 
 (cl:defmacro Values (cl:&rest vals)
-  "Select literal SQL values."
-  `(Values% (make-list ,@(cl:mapcar (cl:lambda (x)
-                                      `(into ,x))
-                                    vals))))
+  "A list of literal SQL values."
+  `(the (List SqlValue)
+    (make-list ,@(cl:mapcar (cl:lambda (x)
+                              `(into ,x))
+                            vals))))
 
 (cl:defmacro Cols (cl:&rest cols)
   "Select columns."
@@ -205,7 +210,7 @@
            (opts-clause (cl:if query-opts
                           `(Some ,(cl:first query-opts))
                           `None)))
-    `(Select% ,vals ,from-clause ,opts-clause)))
+    `(Select% (into ,vals) ,from-clause ,opts-clause)))
 
 (cl:defmacro Delete (from cl:&optional query-opts)
   "Delete the given table in a SQL query."
