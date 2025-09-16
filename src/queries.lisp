@@ -38,6 +38,7 @@
    IsNotNull_
    Not_
    And_
+   Or_
 
    Where
 
@@ -124,7 +125,8 @@
     (IsNull% RowConditionTarget)
     (IsNotNull% RowConditionTarget)
     (Not_ RowCondition)
-    (And_ RowCondition RowCondition))
+    (And_ RowCondition RowCondition)
+    (Or_ RowCondition RowCondition))
 
   (inline)
   (declare Eq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
@@ -269,11 +271,12 @@
       ((LtEq% a b)    (bin-op "<=" a b))
       ((IsNull% a)    (col-suffix a "IS NULL" "Cannot check null against a value."))
       ((IsNotNull% a) (col-suffix a "IS NOT NULL" "Cannot check null against a value."))
+      ((And_ a b)     (recur-bin-op "AND" a b))
+      ((Or_ a b)      (recur-bin-op "OR" a b))
       ((Not_ cnd)
        (let (Tuple cnd-sql cnd-params) =
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
-       (Tuple (build-str "NOT " cnd-sql) cnd-params))
-      ((And_ a b)     (recur-bin-op "AND" a b))))
+       (Tuple (build-str "NOT " cnd-sql) cnd-params))))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
