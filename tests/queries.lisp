@@ -369,3 +369,25 @@
           (norm sql-str)))
   (is (== (make-list)
           params)))
+
+(define-test test-delete-where ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Delete (From "test-table")
+             (Where (And_ (Eq_ "id" (Value 5))
+                          (Gt_ "date" (Value 100)))))))
+  (is (== (norm "DELETE FROM test-table WHERE (id = ?) AND (date > ?);")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 5) (SqlInt 100))
+          params)))
+
+(define-test test-delete-where-pg-style-adapter ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test2
+     (Delete (From "test-table")
+             (Where (And_ (Eq_ "id" (Value 5))
+                          (Gt_ "date" (Value 100)))))))
+  (is (== (norm "DELETE FROM test-table WHERE (id = $0) AND (date > $1);")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 5) (SqlInt 100))
+          params)))

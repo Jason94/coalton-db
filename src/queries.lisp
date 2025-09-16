@@ -178,15 +178,14 @@
     "Things that can be selected against."
     (Values% (List SqlValue))
     AllCols
-    (Cols% (List String))
-    )
+    (Cols% (List String)))
 
   (define-type-alias FromStatement String)
 
   (define-type Query
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
-    (Delete FromStatement)))
+    (Delete% FromStatement (Optional QueryOption))))
 
 (cl:defmacro Values (cl:&rest vals)
   "Select literal SQL values."
@@ -207,6 +206,13 @@
                           `(Some ,(cl:first query-opts))
                           `None)))
     `(Select% ,vals ,from-clause ,opts-clause)))
+
+(cl:defmacro Delete (from cl:&optional query-opts)
+  "Delete the given table in a SQL query."
+  (cl:let ((opts-clause (cl:if query-opts
+                           `(Some ,query-opts)
+                           `None)))
+    `(Delete% ,from ,opts-clause)))
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -316,7 +322,17 @@
        (SqlQuery
         (build-str select-sql from-sql opts-sql ";")
         (<> select-params opts-params)))
-      ((Delete from-qry)
+      ((Delete% from-qry query-opts)
+       (let (Tuple opts-sql opts-params) =
+         (match query-opts
+           ((Some (Where cnd))
+            (let (Tuple cnd-sql cnd-params) =
+              (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
+            (Tuple
+             (build-str " WHERE " cnd-sql)
+             cnd-params))
+           ((None)
+            (Tuple "" (make-list)))))
        (SqlQuery
-        (build-str "DELETE FROM " from-qry ";")
-        (make-list))))))
+        (build-str "DELETE FROM " from-qry opts-sql ";")
+        opts-params)))))
