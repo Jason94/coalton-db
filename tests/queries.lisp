@@ -416,3 +416,14 @@
           (norm sql-str)))
   (is (== (make-list (SqlInt 1) (SqlText "Alice"))
           params)))
+
+(define-test test-insert-single-row-with-columns-pg-style-adapter ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test2
+     (Insert (IntoTable "test-table")
+             (Values 1 "Alice")
+             (Cols "id" "name"))))
+  (is (== (norm "INSERT INTO test-table (id, name) VALUES ($0, $1);")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 1) (SqlText "Alice"))
+          params)))
