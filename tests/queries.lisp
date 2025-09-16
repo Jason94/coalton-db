@@ -50,6 +50,9 @@
 
   (define to-sql-test2 (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy))))
 
+;;;
+;;; SELECT Tests
+;;;
 
 (define-test test-select-constant ()
   (let (SqlQuery sql-str params) = (to-sql-test1 (Select (Values 5))))
@@ -97,6 +100,11 @@
           (norm sql-str)))
   (is (== (make-list)
           params)))
+
+;;;
+;;; WHERE Tests
+;;; (Technically this uses SELECT, but it's just to test WHERE)
+;;;
 
 (define-test test-select-where-true-or-false ()
   (let (SqlQuery sql-str params) =
@@ -347,4 +355,17 @@
   (is (== (norm "SELECT id FROM test-table WHERE NOT id = ?;")
           (norm sql-str)))
   (is (== (make-list (SqlInt 5))
+          params)))
+
+;;;
+;;; DELETE Tests
+;;;
+
+(define-test test-delete-all ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Delete (From "test-table"))))
+  (is (== (norm "DELETE FROM test-table;")
+          (norm sql-str)))
+  (is (== (make-list)
           params)))

@@ -48,6 +48,7 @@
    AllCols
    Cols
    From
+   Delete
 
    to-sql
    ;;; Library Private
@@ -184,7 +185,8 @@
 
   (define-type Query
     "Representation of a SQL query."
-    (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))))
+    (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
+    (Delete FromStatement)))
 
 (cl:defmacro Values (cl:&rest vals)
   "Select literal SQL values."
@@ -313,4 +315,8 @@
             (Tuple "" (make-list)))))
        (SqlQuery
         (build-str select-sql from-sql opts-sql ";")
-        (<> select-params opts-params))))))
+        (<> select-params opts-params)))
+      ((Delete from-qry)
+       (SqlQuery
+        (build-str "DELETE FROM " from-qry ";")
+        (make-list))))))
