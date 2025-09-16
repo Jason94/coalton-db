@@ -12,17 +12,16 @@
    (:itr #:coalton-library/iterator))
   (:export
    ;;; Library Public
+   DatabaseAdapter
+   next-placeholder
+
    SqlValue
    SqlInt
    SqlText
    SqlBool
    SqlNull
    Value
-
-   SqlQuery
-
-   DatabaseAdapter
-   next-placeholder
+   Values
 
    RowCondition
    Value
@@ -44,12 +43,12 @@
 
    Query
    Select
-   Values
    AllCols
    Cols
    From
    Delete
 
+   SqlQuery
    to-sql
    ;;; Library Private
    ))
@@ -59,6 +58,18 @@
 (cl:declaim (cl:optimize (cl:speed 0) (cl:space 0) (cl:debug 3)))
 
 (named-readtables:in-readtable coalton:coalton)
+
+;;;
+;;; Database Adapter
+;;;
+
+(coalton-toplevel
+  (define-class (DatabaseAdapter :a)
+    (next-placeholder (ty:Proxy :a -> Optional String -> String))))
+
+;;;
+;;; Raw SQL Values
+;;;
 
 (coalton-toplevel
   (repr :lisp)
@@ -87,15 +98,14 @@
     (define (into a)
       (match a
         ((None) SqlNull)
-        ((Some a) (into a)))))
+        ((Some a) (into a))))))
 
-  (define-type SqlQuery
-    "A query that has been 'compiled' to a SQL query string and bound parameters."
-    (SqlQuery String (List SqlValue))))
-
-(coalton-toplevel
-  (define-class (DatabaseAdapter :a)
-    (next-placeholder (ty:Proxy :a -> Optional String -> String))))
+(cl:defmacro Values (cl:&rest vals)
+  "A list of raw SQL values."
+  `(the (List SqlValue)
+    (make-list ,@(cl:mapcar (cl:lambda (x)
+                              `(into ,x))
+                            vals))))
 
 (coalton-toplevel
   (define-type RowConditionTarget
@@ -191,13 +201,6 @@
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))))
 
-(cl:defmacro Values (cl:&rest vals)
-  "A list of literal SQL values."
-  `(the (List SqlValue)
-    (make-list ,@(cl:mapcar (cl:lambda (x)
-                              `(into ,x))
-                            vals))))
-
 (cl:defmacro Cols (cl:&rest cols)
   "Select columns."
   `(Cols% (make-list ,@cols)))
@@ -290,6 +293,10 @@
        (let (Tuple cnd-sql cnd-params) =
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
        (Tuple (build-str "NOT " cnd-sql) cnd-params))))
+
+  (define-type SqlQuery
+    "A query that has been 'compiled' to a SQL query string and bound parameters."
+    (SqlQuery String (List SqlValue)))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
