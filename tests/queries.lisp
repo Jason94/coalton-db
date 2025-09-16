@@ -406,13 +406,13 @@
   (is (== (make-list (SqlInt 1) (SqlText "Alice"))
           params)))
 
-;; (define-test test-insert-single-row-with-columns ()
-;;   (let (SqlQuery sql-str params) =
-;;     (to-sql-test1
-;;      (Insert (IntoTable "test-table")
-;;              (Cols "id" "name")
-;;              (Values 1 "Alice"))))
-;;   (is (== (norm "INSERT INTO test-table (id, name) VALUES (?, ?);")
-;;           (norm sql-str)))
-;;   (is (== (make-list (SqlInt 1) (SqlText "Alice"))
-;;           params)))
+(define-test test-insert-single-row-with-columns ()
+  (let (SqlQuery sql-str params) =
+    (to-sql-test1
+     (Insert (IntoTable "test-table")
+             (Values 1 "Alice")
+             (Cols "id" "name"))))
+  (is (== (norm "INSERT INTO test-table (id, name) VALUES (?, ?);")
+          (norm sql-str)))
+  (is (== (make-list (SqlInt 1) (SqlText "Alice"))
+          params)))

@@ -124,10 +124,9 @@
 
 (cl:defmacro Cols (cl:&rest cols)
   "SQL columns."
-  `(Cols% (make-list ,@(cl:mapcar (cl:lambda (col-clause)
-                                    `(into ,col-clause))
-                                  cols))))
-
+  `(make-list ,@(cl:mapcar (cl:lambda (col-clause)
+                             `(the SqlColumn (into ,col-clause)))
+                           cols)))
 
 ;;;
 ;;; Row Conditions
@@ -209,6 +208,10 @@
     "Options to modify a query."
     (Where RowCondition)))
 
+;;;
+;;; Outer Query API
+;;;
+
 (coalton-toplevel
   (define-type-alias FromStatement String)
 
@@ -222,6 +225,10 @@
     (inline)
     (define into Values%))
 
+  (define-instance (Into (List SqlColumn) SelectTarget)
+    (inline)
+    (define into Cols%))
+
   ;; TODO: Create a table alias, at least...
   (define-type IntoStatement
     (IntoTable String))
@@ -234,17 +241,17 @@
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))
-    (Insert% IntoStatement (List SqlValue))))
+    (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))))
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
   (cl:let ((from-clause (cl:if from
-                          `(Some ,from)
+                          `(Some (into ,from))
                           `None))
            (opts-clause (cl:if query-opts
                           `(Some ,(cl:first query-opts))
                           `None)))
-    `(Select% (into ,vals) ,from-clause ,opts-clause)))
+    `(Select% (the SelectTarget (into ,vals)) ,from-clause ,opts-clause)))
 
 (cl:defmacro Delete (from cl:&optional query-opts)
   "Delete the given table in a SQL query."
@@ -253,9 +260,12 @@
                            `None)))
     `(Delete% ,from ,opts-clause)))
 
-(cl:defmacro Insert (into-stmt values)
+(cl:defmacro Insert (into-stmt values cl:&optional cols)
   "Insert values into the given table in a SQL query."
-  `(Insert% ,into-stmt ,values))
+  (cl:let ((cols-clause (cl:if cols
+                               `(Some ,cols)
+                               `None)))
+    `(Insert% ,into-stmt ,values ,cols-clause)))
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -388,10 +398,18 @@
        (SqlQuery
         (build-str "DELETE FROM " from-qry opts-sql ";")
         opts-params))
-      ((Insert% into-stmt insert-vals)
+      ((Insert% into-stmt insert-vals cols?)
        (let placeholders = (join-str ", " (map (fn (_) (get-next-placeholder! db-adptr-proxy last-param-str))
                                                insert-vals)))
+       (let cols-sql =
+         (match cols?
+           ((None) "")
+           ((Some cols)
+            (build-str " ("
+                       (join-str ", " (map col-to-sql cols))
+                       ") "))))
        (let insert-sql = (build-str "INSERT INTO "
                                     (into-stmt->tbl-name into-stmt)
+                                    cols-sql
                                     " VALUES (" placeholders ");"))
        (SqlQuery insert-sql insert-vals)))))
