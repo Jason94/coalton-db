@@ -50,56 +50,51 @@
 
   (define to-sql-test2 (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy))))
 
+(cl:defmacro is-sql-eql (sql-str-a params-a sql-b)
+  "Test if a sql queriy has (1) the right normalized query string and (2) has
+the right parameter list."
+  ;; NOTE: This leaks the symbols... it's probably fine...
+  `(progn
+     (let (SqlQuery sql-str-b params-b) = ,sql-b)
+     (is (== (norm ,sql-str-a) (norm sql-str-b)))
+     (is (== (make-list ,@params-a) params-b))))
+
 ;;;
 ;;; SELECT Tests
 ;;;
 
 (define-test test-select-constant ()
-  (let (SqlQuery sql-str params) = (to-sql-test1 (Select (Values 5))))
-  (is (== (norm "SELECT ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5))
-          params))
-  (let (SqlQuery sql-str params) = (to-sql-test1 (Select (Values "Hello"))))
-  (is (== (norm "SELECT ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlText "Hello"))
-          params)))
+  (let result = (to-sql-test1 (Select (Values 5))))
+  (is-sql-eql "SELECT ?;" ((SqlInt 5))
+              result)
+  (let result2 = (to-sql-test1 (Select (Values "Hello"))))
+  (is-sql-eql "SELECT ?;" ((SqlText "Hello"))
+              result2))
 
 (define-test test-select-multiple-constants ()
-  (let (SqlQuery sql-str params) = (to-sql-test1 (Select (Values 5 "Hello"))))
-  (is (== (norm "SELECT ?, ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5) (SqlText "Hello"))
-          params)))
+  (let result = (to-sql-test1 (Select (Values 5 "Hello"))))
+  (is-sql-eql "SELECT ?, ?;" ((SqlInt 5) (SqlText "Hello"))
+              result))
 
 (define-test test-select-multiple-constants-pg-style-adapter ()
-  (let (SqlQuery sql-str params) = (to-sql-test2 (Select (Values 5 "Hello"))))
-  (is (== (norm "SELECT $0, $1;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5) (SqlText "Hello"))
-          params)))
+  (let result = (to-sql-test2 (Select (Values 5 "Hello"))))
+  (is-sql-eql "SELECT $0, $1;" ((SqlInt 5) (SqlText "Hello"))
+              result))
 
 (define-test test-select-constants-from-table ()
-  (let (SqlQuery sql-str params) = (to-sql-test1 (Select (Values 5) (From "test-table"))))
-  (is (== (norm "SELECT ? FROM test-table;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5))
-          params)))
+  (let result = (to-sql-test1 (Select (Values 5) (From "test-table"))))
+  (is-sql-eql "SELECT ? FROM test-table;" ((SqlInt 5))
+              result))
 
 (define-test test-select-all-from-table ()
-  (let (SqlQuery sql-str params) = (to-sql-test1 (Select AllCols (From "test-table"))))
-  (is (== (norm "SELECT * FROM test-table;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params)))
+  (let result = (to-sql-test1 (Select AllCols (From "test-table"))))
+  (is-sql-eql "SELECT * FROM test-table;" ()
+              result))
 
 (define-test test-select-cols-from-table ()
-  (let (SqlQuery sql-str params) = (to-sql-test1 (Select (Cols "id" "name") (From "test-table"))))
-  (is (== (norm "SELECT id, name FROM test-table;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id" "name") (From "test-table"))))
+  (is-sql-eql "SELECT id, name FROM test-table;" ()
+              result))
 
 ;;;
 ;;; WHERE Tests
@@ -107,372 +102,275 @@
 ;;;
 
 (define-test test-select-where-true-or-false ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where True_))))
-  (is (== (norm "SELECT id FROM test-table WHERE TRUE;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where False_))))
-  (is (== (norm "SELECT id FROM test-table WHERE FALSE;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where True_))))
+  (is-sql-eql "SELECT id FROM test-table WHERE TRUE;" ()
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where False_))))
+  (is-sql-eql "SELECT id FROM test-table WHERE FALSE;" ()
+              result2))
 
 (define-test test-select-where-col-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Eq_ "id" (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE id = ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Eq_ (Value 123) "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? = id;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Eq_ "id" (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id = ?;" ((SqlInt 123))
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where (Eq_ (Value 123) "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? = id;" ((SqlInt 123))
+              result2))
 
 (define-test test-select-where-multiple-values ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Eq_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? = ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Eq_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? = ?;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-multiple-values-pg-style-adapter ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test2 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Eq_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE $0 = $1;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test2 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Eq_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE $0 = $1;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-col-not-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Neq_ "id" (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE id <> ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Neq_ (Value 123) "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? <> id;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Neq_ "id" (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id <> ?;" ((SqlInt 123))
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where (Neq_ (Value 123) "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? <> id;" ((SqlInt 123))
+              result2))
 
 (define-test test-select-where-multiple-values-not-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Neq_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? <> ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Neq_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? <> ?;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-col-greater-than ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Gt_ "id" (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE id > ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Gt_ (Value 123) "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? > id;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Gt_ "id" (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id > ?;" ((SqlInt 123))
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where (Gt_ (Value 123) "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? > id;" ((SqlInt 123))
+              result2))
 
 (define-test test-select-where-multiple-values-greater-than ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Gt_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? > ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Gt_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? > ?;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-col-less-than ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Lt_ "id" (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE id < ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Lt_ (Value 123) "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? < id;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Lt_ "id" (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id < ?;" ((SqlInt 123))
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where (Lt_ (Value 123) "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? < id;" ((SqlInt 123))
+              result2))
 
 (define-test test-select-where-multiple-values-less-than ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (Lt_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? < ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (Lt_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? < ?;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-col-greater-than-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (GtEq_ "id" (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE id >= ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (GtEq_ (Value 123) "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? >= id;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (GtEq_ "id" (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id >= ?;" ((SqlInt 123))
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where (GtEq_ (Value 123) "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? >= id;" ((SqlInt 123))
+              result2))
 
 (define-test test-select-where-multiple-values-greater-than-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (GtEq_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? >= ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (GtEq_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? >= ?;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-col-less-than-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (LtEq_ "id" (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE id <= ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params))
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (LtEq_ (Value 123) "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? <= id;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (LtEq_ "id" (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id <= ?;" ((SqlInt 123))
+              result)
+  (let result2 = (to-sql-test1 (Select (Cols "id")
+                                       (From "test-table")
+                                       (Where (LtEq_ (Value 123) "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? <= id;" ((SqlInt 123))
+              result2))
 
 (define-test test-select-where-multiple-values-less-than-equal ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (LtEq_ (Value 321) (Value 123))))))
-  (is (== (norm "SELECT id FROM test-table WHERE ? <= ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 321) (SqlInt 123))
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (LtEq_ (Value 321) (Value 123))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE ? <= ?;" ((SqlInt 321) (SqlInt 123))
+              result))
 
 (define-test test-select-where-is-null ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (IsNull_ "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE id IS NULL;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (IsNull_ "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id IS NULL;" ()
+              result))
 
 (define-test test-select-where-is-not-null ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1 (Select (Cols "id")
-                          (From "test-table")
-                          (Where (IsNotNull_ "id")))))
-  (is (== (norm "SELECT id FROM test-table WHERE id IS NOT NULL;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params)))
+  (let result = (to-sql-test1 (Select (Cols "id")
+                                      (From "test-table")
+                                      (Where (IsNotNull_ "id")))))
+  (is-sql-eql "SELECT id FROM test-table WHERE id IS NOT NULL;" ()
+              result))
 
 (define-test test-select-where-and-two-cols ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Select (Cols "id")
-             (From "test-table")
-             (Where (And_ (Eq_ "id" (Value 123))
-                          (Eq_ "name" (Value "Alice")))))))
-  (is (== (norm "SELECT id FROM test-table WHERE (id = ?) AND (name = ?);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123) (SqlText "Alice"))
-          params)))
+  (let result = (to-sql-test1
+                 (Select (Cols "id")
+                         (From "test-table")
+                         (Where (And_ (Eq_ "id" (Value 123))
+                                      (Eq_ "name" (Value "Alice")))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE (id = ?) AND (name = ?);"
+              ((SqlInt 123) (SqlText "Alice"))
+              result))
 
 (define-test test-select-where-or-two-cols ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Select (Cols "id")
-             (From "test-table")
-             (Where (Or_ (Eq_ "id" (Value 123))
-                          (Eq_ "name" (Value "Alice")))))))
-  (is (== (norm "SELECT id FROM test-table WHERE (id = ?) OR (name = ?);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 123) (SqlText "Alice"))
-          params)))
+  (let result = (to-sql-test1
+                 (Select (Cols "id")
+                         (From "test-table")
+                         (Where (Or_ (Eq_ "id" (Value 123))
+                                     (Eq_ "name" (Value "Alice")))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE (id = ?) OR (name = ?);"
+              ((SqlInt 123) (SqlText "Alice"))
+              result))
 
 (define-test test-select-where-not ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Select (Cols "id")
-             (From "test-table")
-             (Where (Not_ (Eq_ "id" (Value 5)))))))
-  (is (== (norm "SELECT id FROM test-table WHERE NOT id = ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5))
-          params)))
+  (let result = (to-sql-test1
+                 (Select (Cols "id")
+                         (From "test-table")
+                         (Where (Not_ (Eq_ "id" (Value 5)))))))
+  (is-sql-eql "SELECT id FROM test-table WHERE NOT id = ?;" ((SqlInt 5))
+              result))
 
 ;;;
 ;;; DELETE Tests
 ;;;
 
 (define-test test-delete-all ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Delete (From "test-table"))))
-  (is (== (norm "DELETE FROM test-table;")
-          (norm sql-str)))
-  (is (== (make-list)
-          params)))
+  (let result = (to-sql-test1
+                 (Delete (From "test-table"))))
+  (is-sql-eql "DELETE FROM test-table;" ()
+              result))
 
 (define-test test-delete-where ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Delete (From "test-table")
-             (Where (And_ (Eq_ "id" (Value 5))
-                          (Gt_ "date" (Value 100)))))))
-  (is (== (norm "DELETE FROM test-table WHERE (id = ?) AND (date > ?);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5) (SqlInt 100))
-          params)))
+  (let result = (to-sql-test1
+                 (Delete (From "test-table")
+                         (Where (And_ (Eq_ "id" (Value 5))
+                                      (Gt_ "date" (Value 100)))))))
+  (is-sql-eql "DELETE FROM test-table WHERE (id = ?) AND (date > ?);"
+              ((SqlInt 5) (SqlInt 100))
+              result))
 
 (define-test test-delete-where-pg-style-adapter ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test2
-     (Delete (From "test-table")
-             (Where (And_ (Eq_ "id" (Value 5))
-                          (Gt_ "date" (Value 100)))))))
-  (is (== (norm "DELETE FROM test-table WHERE (id = $0) AND (date > $1);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 5) (SqlInt 100))
-          params)))
+  (let result = (to-sql-test2
+                 (Delete (From "test-table")
+                         (Where (And_ (Eq_ "id" (Value 5))
+                                      (Gt_ "date" (Value 100)))))))
+  (is-sql-eql "DELETE FROM test-table WHERE (id = $0) AND (date > $1);"
+              ((SqlInt 5) (SqlInt 100))
+              result))
 
 ;;;
 ;;; INSERT Tests
 ;;;
 
 (define-test test-insert-single-row-without-columns ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Insert (IntoTable "test-table")
-             (Values 1 "Alice"))))
-  (is (== (norm "INSERT INTO test-table VALUES (?, ?);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 1) (SqlText "Alice"))
-          params)))
+  (let result = (to-sql-test1
+                 (Insert (IntoTable "test-table")
+                         (Values 1 "Alice"))))
+  (is-sql-eql "INSERT INTO test-table VALUES (?, ?);"
+              ((SqlInt 1) (SqlText "Alice"))
+              result))
 
 (define-test test-insert-single-row-with-columns ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Insert (IntoTable "test-table")
-             (Values 1 "Alice")
-             (Cols "id" "name"))))
-  (is (== (norm "INSERT INTO test-table (id, name) VALUES (?, ?);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 1) (SqlText "Alice"))
-          params)))
+  (let result = (to-sql-test1
+                 (Insert (IntoTable "test-table")
+                         (Values 1 "Alice")
+                         (Cols "id" "name"))))
+  (is-sql-eql "INSERT INTO test-table (id, name) VALUES (?, ?);"
+              ((SqlInt 1) (SqlText "Alice"))
+              result))
 
 (define-test test-insert-single-row-with-columns-pg-style-adapter ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test2
-     (Insert (IntoTable "test-table")
-             (Values 1 "Alice")
-             (Cols "id" "name"))))
-  (is (== (norm "INSERT INTO test-table (id, name) VALUES ($0, $1);")
-          (norm sql-str)))
-  (is (== (make-list (SqlInt 1) (SqlText "Alice"))
-          params)))
+  (let result = (to-sql-test2
+                 (Insert (IntoTable "test-table")
+                         (Values 1 "Alice")
+                         (Cols "id" "name"))))
+  (is-sql-eql "INSERT INTO test-table (id, name) VALUES ($0, $1);"
+              ((SqlInt 1) (SqlText "Alice"))
+              result))
 
 ;;;
 ;;; UPDATE Tests
 ;;;
 
 (define-test test-update-set-single-col ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Update "test-table"
-             (("name" "Bob")))))
-  (is (== (norm "UPDATE test-table SET name = ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlText "Bob"))
-          params)))
+  (let result = (to-sql-test1
+                 (Update "test-table"
+                         (("name" "Bob")))))
+  (is-sql-eql "UPDATE test-table SET name = ?;"
+              ((SqlText "Bob"))
+              result))
 
 (define-test test-update-set-multiple-cols ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Update "test-table"
-             (("name" "Bob")
-              ("id" 1)))))
-  (is (== (norm "UPDATE test-table SET name = ?, id = ?;")
-          (norm sql-str)))
-  (is (== (make-list (SqlText "Bob") (SqlInt 1))
-          params)))
+  (let result = (to-sql-test1
+                 (Update "test-table"
+                         (("name" "Bob")
+                          ("id" 1)))))
+  (is-sql-eql "UPDATE test-table SET name = ?, id = ?;"
+              ((SqlText "Bob") (SqlInt 1))
+              result))
 
 (define-test test-update-set-multiple-cols-pg-style-adapter ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test2
-     (Update "test-table"
-             (("name" "Bob")
-              ("id" 1)))))
-  (is (== (norm "UPDATE test-table SET name = $0, id = $1;")
-          (norm sql-str)))
-  (is (== (make-list (SqlText "Bob") (SqlInt 1))
-          params)))
+  (let result = (to-sql-test2
+                 (Update "test-table"
+                         (("name" "Bob")
+                          ("id" 1)))))
+  (is-sql-eql "UPDATE test-table SET name = $0, id = $1;"
+              ((SqlText "Bob") (SqlInt 1))
+              result))
 
 (define-test test-update-set-multiple-cols-where ()
-  (let (SqlQuery sql-str params) =
-    (to-sql-test1
-     (Update "test-table"
-             (("name" "Bob")
-              ("id" 1))
-             (Where (And_ (GtEq_ "id" (Value 10))
-                          (IsNull_ "name"))))))
-  (is (== (norm "UPDATE test-table SET name = ?, id = ? WHERE (id >= ?) AND (name IS NULL);")
-          (norm sql-str)))
-  (is (== (make-list (SqlText "Bob") (SqlInt 1) (SqlInt 10))
-          params)))
+  (let result = (to-sql-test1
+                 (Update "test-table"
+                         (("name" "Bob")
+                          ("id" 1))
+                         (Where (And_ (GtEq_ "id" (Value 10))
+                                      (IsNull_ "name"))))))
+  (is-sql-eql "UPDATE test-table SET name = ?, id = ? WHERE (id >= ?) AND (name IS NULL);"
+              ((SqlText "Bob") (SqlInt 1) (SqlInt 10))
+              result))
