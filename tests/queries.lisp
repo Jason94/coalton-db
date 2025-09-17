@@ -400,7 +400,7 @@ the right parameter list."
      (CreateTable "test-table" ()
                   ((IntType "id" PrimaryKey)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
-                         " id INTEGER PRIMARY KEY"
+                         " id INTEGER PRIMARY KEY NOT NULL"
                          ");")
               ()
               result))
@@ -411,7 +411,7 @@ the right parameter list."
      (CreateTable "test-table" (IfNotExists)
                   ((IntType "id" PrimaryKey)))))
   (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS test-table ("
-                         " id INTEGER PRIMARY KEY"
+                         " id INTEGER PRIMARY KEY NOT NULL"
                          ");")
               ()
               result))
@@ -424,9 +424,9 @@ the right parameter list."
                    (TextType "name")
                    (BoolType "checked")))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
-                         " id INTEGER PRIMARY KEY,"
-                         " name TEXT,"
-                         " checked BOOLEAN"
+                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " name TEXT NOT NULL,"
+                         " checked BOOLEAN NOT NULL"
                          ");")
               ()
               result))
@@ -438,8 +438,8 @@ the right parameter list."
                   ((IntType "id" PrimaryKey)
                    (BoolType "checked" Unique)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
-                         " id INTEGER PRIMARY KEY,"
-                         " checked BOOLEAN UNIQUE"
+                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " checked BOOLEAN UNIQUE NOT NULL"
                          ");")
               ()
               result))
@@ -453,7 +453,18 @@ the right parameter list."
      (CreateTable "test-table" ()
                   ((IntType "id" PrimaryKey Unique)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
-                         " id INTEGER PRIMARY KEY UNIQUE"
+                         " id INTEGER PRIMARY KEY UNIQUE NOT NULL"
+                         ");")
+              ()
+              result))
+
+(define-test test-create-table-nullable ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" (IfNotExists)
+                  ((IntType "id" PrimaryKey Nullable)))))
+  (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS test-table ("
+                         " id INTEGER PRIMARY KEY"
                          ");")
               ()
               result))
