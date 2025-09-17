@@ -9,6 +9,7 @@
    (:lp #:coalton-library/experimental/loops)
    (:s #:coalton-library/string)
    (:ty #:coalton-library/types)
+   (:lst #:coalton-library/list)
    (:itr #:coalton-library/iterator))
   (:export
    ;;; Library Public
@@ -22,6 +23,11 @@
    SqlNull
    Value
    Values
+
+   SqlType
+   IntType
+   TextType
+   BoolType
 
    Cols
 
@@ -53,6 +59,10 @@
    Update
    DropTable
    IfExists
+   CreateTable
+   IfNotExists
+
+   PrimaryKey
 
    SqlQuery
    to-sql
@@ -216,6 +226,10 @@
 ;;;
 
 (coalton-toplevel
+  ;;;
+  ;;; SELECT Syntax
+  ;;;
+
   (define-type-alias FromStatement String)
 
   (define-type-alias SqlTable String)
@@ -234,19 +248,57 @@
     (inline)
     (define into Cols%))
 
-  ;; TODO: Create a table alias, at least...
+  (declare From (String -> FromStatement))
+  (define From id)
+
+  ;;;
+  ;;; INSERT Syntax
+  ;;;
+
   (define-type IntoStatement
-    (IntoTable String))
+    (IntoTable SqlTable))
 
   (declare into-stmt->tbl-name (IntoStatement -> String))
   (define (into-stmt->tbl-name (IntoTable tbl-name))
     tbl-name)
 
+  ;;;
+  ;;; UPDATE Syntax
+  ;;;
+
   (define-type SetTarget
     (SetTarget SqlColumn SqlValue))
 
+  ;;;
+  ;;; DROP Syntax
+  ;;;
+
   (define-type DropOption
     IfExists)
+
+  ;;;
+  ;;; CREATE TABLE Syntax
+  ;;;
+
+  (define-type SqlType
+    IntType
+    TextType
+    BoolType)
+
+  (define-type CreateTableOption
+    IfNotExists)
+
+  (define-type ColumnProperty
+    PrimaryKey)
+
+  (define-struct ColumnDefinition
+    (col-type SqlType)
+    (col-name String)
+    (properties (List ColumnProperty)))
+
+  ;;;
+  ;;; Query Type
+  ;;;
 
   (define-type Query
     "Representation of a SQL query."
@@ -254,7 +306,12 @@
     (Delete% FromStatement (Optional QueryOption))
     (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))
     (Update% SqlTable (List SetTarget) (Optional QueryOption))
-    (DropTable% SqlTable (Optional DropOption))))
+    (DropTable% SqlTable (Optional DropOption))
+    (CreateTable% String (List CreateTableOption) (List ColumnDefinition))))
+
+;;;
+;;; Syntax Sugar Wrappers
+;;;
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
@@ -302,9 +359,15 @@
                                `None)))
   `(DropTable% ,tbl ,drop-clause)))
 
-(coalton-toplevel
-  (declare From (String -> FromStatement))
-  (define From id))
+(cl:defmacro CreateTable (tbl-name opts-clauses col-clauses)
+  "Create a table in a SQL query."
+  (cl:let ((col-def-clauses (cl:mapcar (cl:lambda (col-clause)
+                                         `(ColumnDefinition
+                                           ,(cl:first col-clause)
+                                           ,(cl:second col-clause)
+                                           (make-list ,@(cl:cddr col-clause))))
+                                       col-clauses)))
+    `(CreateTable% ,tbl-name (make-list ,@opts-clauses) (make-list ,@col-def-clauses))))
 
 ;;;
 ;;; Compile Query -> SQL
@@ -383,6 +446,27 @@
        (let (Tuple cnd-sql cnd-params) =
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
        (Tuple (build-str "NOT " cnd-sql) cnd-params))))
+
+  (declare col-def-to-sql (ColumnDefinition -> String))
+  (define (col-def-to-sql col-def)
+    (let type-sql = (match (.col-type col-def)
+                      ((IntType) "INTEGER")
+                      ((TextType) "TEXT")
+                      ((BoolType) "BOOLEAN")))
+    (let prop-to-sql = (fn (prop)
+                         (match prop
+                           ((PrimaryKey) "PRIMARY KEY"))))
+    (let props-sql =
+      (join-str " " (map prop-to-sql (.properties col-def))))
+    (let props-pad = (if (== props-sql "")
+                         ""
+                         " "))
+    (build-str " " (.col-name col-def) " " type-sql props-pad props-sql))
+
+  (declare create-table-opt-to-sql (CreateTableOption -> String))
+  (define (create-table-opt-to-sql opt)
+    (match opt
+      ((IfNotExists) "IF NOT EXISTS")))
 
   (define-type SqlQuery
     "A query that has been 'compiled' to a SQL query string and bound parameters."
@@ -466,4 +550,16 @@
                         ((Some (IfExists)) " IF EXISTS ")))
        (SqlQuery
         (build-str "DROP TABLE " opt-sql tbl ";")
+        (make-list)))
+      ((CreateTable% tbl-name create-table-opts col-defs)
+       (let col-defs-sql = (join-str ", " (map col-def-to-sql col-defs)))
+       (let create-table-opts-sql =
+         (join-str ""
+                   (map (fn (opt)
+                          (<> (create-table-opt-to-sql opt) " "))
+                        create-table-opts)))
+       (SqlQuery
+        (build-str "CREATE TABLE " create-table-opts-sql tbl-name " ( "
+                   col-defs-sql
+                   ");")
         (make-list))))))

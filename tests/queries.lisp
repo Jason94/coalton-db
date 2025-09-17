@@ -1,6 +1,7 @@
 (defpackage coalton-db/tests/queries
   (:use #:coalton #:coalton-prelude #:coalton-testing
-        #:coalton-db/queries)
+        #:coalton-db/queries
+        #:coalton-db/util)
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:ty #:coalton-library/types)
@@ -387,4 +388,45 @@ the right parameter list."
 (define-test test-drop-table-if-exists ()
   (let result = (to-sql-test1 (DropTable "test-table" IfExists)))
   (is-sql-eql "DROP TABLE IF EXISTS test-table;" ()
+              result))
+
+;;;
+;;; CREATE TABLE Tests
+;;;
+
+(define-test test-create-table-one-col ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" ()
+                  ((IntType "id" PrimaryKey)))))
+  (is-sql-eql (build-str "CREATE TABLE test-table ("
+                         " id INTEGER PRIMARY KEY"
+                         ");")
+              ()
+              result))
+
+(define-test test-create-table-if-not-exists ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" (IfNotExists)
+                  ((IntType "id" PrimaryKey)))))
+  (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS test-table ("
+                         " id INTEGER PRIMARY KEY"
+                         ");")
+              ()
+              result))
+
+(define-test test-create-table-three-cols ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" ()
+                  ((IntType "id" PrimaryKey)
+                   (TextType "name")
+                   (BoolType "checked")))))
+  (is-sql-eql (build-str "CREATE TABLE test-table ("
+                         " id INTEGER PRIMARY KEY,"
+                         " name TEXT,"
+                         " checked BOOLEAN"
+                         ");")
+              ()
               result))
