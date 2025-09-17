@@ -430,3 +430,30 @@ the right parameter list."
                          ");")
               ()
               result))
+
+(define-test test-create-table-unique ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" ()
+                  ((IntType "id" PrimaryKey)
+                   (BoolType "checked" Unique)))))
+  (is-sql-eql (build-str "CREATE TABLE test-table ("
+                         " id INTEGER PRIMARY KEY,"
+                         " checked BOOLEAN UNIQUE"
+                         ");")
+              ()
+              result))
+
+(define-test test-create-table-two-col-props ()
+  ;; NOTE: UNIQUE & PRIMARY KEY is redundant, but coalton-db isn't going to
+  ;; enforce those kinds of checks. The library will allow those kinds of
+  ;; things, and it works if it works.
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" ()
+                  ((IntType "id" PrimaryKey Unique)))))
+  (is-sql-eql (build-str "CREATE TABLE test-table ("
+                         " id INTEGER PRIMARY KEY UNIQUE"
+                         ");")
+              ()
+              result))

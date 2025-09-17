@@ -63,6 +63,7 @@
    IfNotExists
 
    PrimaryKey
+   Unique
 
    SqlQuery
    to-sql
@@ -289,7 +290,8 @@
     IfNotExists)
 
   (define-type ColumnProperty
-    PrimaryKey)
+    PrimaryKey
+    Unique)
 
   (define-struct ColumnDefinition
     (col-type SqlType)
@@ -455,7 +457,8 @@
                       ((BoolType) "BOOLEAN")))
     (let prop-to-sql = (fn (prop)
                          (match prop
-                           ((PrimaryKey) "PRIMARY KEY"))))
+                           ((PrimaryKey) "PRIMARY KEY")
+                           ((Unique) "UNIQUE"))))
     (let props-sql =
       (join-str " " (map prop-to-sql (.properties col-def))))
     (let props-pad = (if (== props-sql "")
