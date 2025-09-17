@@ -51,6 +51,8 @@
    Insert
    IntoTable
    Update
+   DropTable
+   IfExists
 
    SqlQuery
    to-sql
@@ -243,12 +245,16 @@
   (define-type SetTarget
     (SetTarget SqlColumn SqlValue))
 
+  (define-type DropOption
+    IfExists)
+
   (define-type Query
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))
     (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))
-    (Update% SqlTable (List SetTarget) (Optional QueryOption))))
+    (Update% SqlTable (List SetTarget) (Optional QueryOption))
+    (DropTable% SqlTable (Optional DropOption))))
 
 (cl:defmacro Select (vals cl:&optional from cl:&rest query-opts)
   "Select the given selectable objects in a SQL query."
@@ -288,6 +294,13 @@
                       (into ,(cl:second set-tuple))))
                   set-tuples))
     ,opts-clause)))
+
+(cl:defmacro DropTable (tbl cl:&optional drop-opt)
+  "Drop a table in a SQL query."
+  (cl:let ((drop-clause (cl:if drop-opt
+                               `(Some ,drop-opt)
+                               `None)))
+  `(DropTable% ,tbl ,drop-clause)))
 
 (coalton-toplevel
   (declare From (String -> FromStatement))
@@ -446,4 +459,11 @@
        (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
         (build-str "UPDATE " tbl " SET " set-sql opts-sql ";")
-        (<> set-vals opts-params))))))
+        (<> set-vals opts-params)))
+      ((DropTable% tbl drop-opt)
+       (let opt-sql = (match drop-opt
+                        ((None) "")
+                        ((Some (IfExists)) " IF EXISTS ")))
+       (SqlQuery
+        (build-str "DROP TABLE " opt-sql tbl ";")
+        (make-list))))))

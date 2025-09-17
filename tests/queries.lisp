@@ -374,3 +374,17 @@ the right parameter list."
   (is-sql-eql "UPDATE test-table SET name = ?, id = ? WHERE (id >= ?) AND (name IS NULL);"
               ((SqlText "Bob") (SqlInt 1) (SqlInt 10))
               result))
+
+;;;
+;;; DROP TABLE Tests
+;;;
+
+(define-test test-drop-table ()
+  (let result = (to-sql-test1 (DropTable "test-table")))
+  (is-sql-eql "DROP TABLE test-table;" ()
+              result))
+
+(define-test test-drop-table-if-exists ()
+  (let result = (to-sql-test1 (DropTable "test-table" IfExists)))
+  (is-sql-eql "DROP TABLE IF EXISTS test-table;" ()
+              result))
