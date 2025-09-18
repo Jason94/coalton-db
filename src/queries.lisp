@@ -248,8 +248,8 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
     (CompositePrimaryKey% (List SqlTable)))
 
   (define-struct ColumnDefinition
-    (col-type SqlType)
     (col-name String)
+    (col-type SqlType)
     (properties (List ColumnProperty))
     (nullable? Boolean))
 
@@ -316,7 +316,7 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
                                `None)))
   `(DropTable% ,tbl ,drop-clause)))
 
-(cl:defun col-clause-to-col-def-clause (type name properties)
+(cl:defun col-clause-to-col-def-clause (name type properties)
   (cl:let* ((concrete-properties (cl:remove-if (cl:lambda (sym)
                                                  (cl:equalp sym 'Nullable))
                                                properties))
@@ -324,7 +324,7 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
             (nullable-clause (cl:if col-is-nullable?
                                     'True
                                     'False)))
-    `(ColumnDefinition ,type ,name (make-list ,@concrete-properties) ,nullable-clause)))
+    `(ColumnDefinition ,name ,type (make-list ,@concrete-properties) ,nullable-clause)))
 
 (cl:defmacro CompositePrimaryKey (first-col cl:&rest rem-cols)
   "Create a table with a multi-column primary key in a SQL query."

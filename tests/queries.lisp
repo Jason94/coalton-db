@@ -399,7 +399,7 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" ()
-                  ((IntType "id" PrimaryKey)))))
+                  (("id" IntType PrimaryKey)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
                          " id INTEGER PRIMARY KEY NOT NULL"
                          ");")
@@ -410,7 +410,7 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" (IfNotExists)
-                  ((IntType "id" PrimaryKey)))))
+                  (("id" IntType PrimaryKey)))))
   (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS test-table ("
                          " id INTEGER PRIMARY KEY NOT NULL"
                          ");")
@@ -421,9 +421,9 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" ()
-                  ((IntType "id" PrimaryKey)
-                   (TextType "name")
-                   (BoolType "checked")))))
+                  (("id" IntType PrimaryKey)
+                   ("name" TextType)
+                   ("checked" BoolType)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
                          " id INTEGER PRIMARY KEY NOT NULL,"
                          " name TEXT NOT NULL,"
@@ -436,8 +436,8 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" ()
-                  ((IntType "id" PrimaryKey)
-                   (BoolType "checked" Unique)))))
+                  (("id" IntType PrimaryKey)
+                   ("checked" BoolType Unique)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
                          " id INTEGER PRIMARY KEY NOT NULL,"
                          " checked BOOLEAN UNIQUE NOT NULL"
@@ -452,7 +452,7 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" ()
-                  ((IntType "id" PrimaryKey Unique)))))
+                  (("id" IntType PrimaryKey Unique)))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
                          " id INTEGER PRIMARY KEY UNIQUE NOT NULL"
                          ");")
@@ -463,7 +463,7 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" (IfNotExists)
-                  ((IntType "id" PrimaryKey Nullable)))))
+                  (("id" IntType PrimaryKey Nullable)))))
   (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS test-table ("
                          " id INTEGER PRIMARY KEY"
                          ");")
@@ -474,8 +474,8 @@ the right parameter list."
   (let result =
     (to-sql-test1
      (CreateTable "test-table" ()
-                  ((IntType "id")
-                   (TextType "campaign"))
+                  (("id" IntType)
+                   ("campaign" TextType))
                   ((CompositePrimaryKey "id" "campaign")))))
   (is-sql-eql (build-str "CREATE TABLE test-table ("
                          " id INTEGER NOT NULL,"
