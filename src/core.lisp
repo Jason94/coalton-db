@@ -7,9 +7,6 @@
    (:ty #:coalton-library/types))
   (:export
    ;;; Library Public
-   DatabaseAdapter
-   next-placeholder
-
    SqlValue
    SqlInt
    SqlText
@@ -18,20 +15,15 @@
    Value
    Values
 
+   DatabaseAdapter
+   next-placeholder
+
    ;;; Library Private
    ))
 
 (in-package :coalton-db/core)
 
 (named-readtables:in-readtable coalton:coalton)
-
-;;;
-;;; Database Adapter
-;;;
-
-(coalton-toplevel
-  (define-class (DatabaseAdapter :a)
-    (next-placeholder (ty:Proxy :a -> Optional String -> String))))
 
 ;;;
 ;;; Raw SQL Values
@@ -72,3 +64,11 @@
     (make-list ,@(cl:mapcar (cl:lambda (x)
                               `(into ,x))
                             vals))))
+
+;;;
+;;; Database Adapter
+;;;
+
+(coalton-toplevel
+  (define-class (DatabaseAdapter :a)
+    (next-placeholder (ty:Proxy :a -> Optional String -> String))))

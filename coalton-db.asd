@@ -32,6 +32,7 @@
   :components ((:module "tests"
                 :components
                 ((:file "queries")
+                 (:file "sqlite")
                  (:file "package"))))
   :description "Test system for COALTON-DB."
   :perform (test-op (op c) (symbol-call '#:coalton-db/tests '#:run-tests)))
