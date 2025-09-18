@@ -61,6 +61,7 @@
    IfExists
    CreateTable
    IfNotExists
+   CompositePrimaryKey
 
    PrimaryKey
    Unique
@@ -294,13 +295,17 @@
     PrimaryKey
     Unique)
 
-  (define-type GhostColumnProperties
+  (define-type GhostColumnProperty
     "Keywords used in the syntax, but not inserted as column propertiese into the
 column definition."
     Nullable
     "SQL defaults to Nullable, but coalton-db defaults to Not-Nullable. To support
 that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
 `Nullable` 'ghost' property is used in the definition.")
+
+  (derive Eq)
+  (define-type TableProperty
+    (CompositePrimaryKey% (List SqlTable)))
 
   (define-struct ColumnDefinition
     (col-type SqlType)
@@ -319,7 +324,7 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
     (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))
     (Update% SqlTable (List SetTarget) (Optional QueryOption))
     (DropTable% SqlTable (Optional DropOption))
-    (CreateTable% String (List CreateTableOption) (List ColumnDefinition))))
+    (CreateTable% String (List CreateTableOption) (List ColumnDefinition) (List TableProperty))))
 
 ;;;
 ;;; Syntax Sugar Wrappers
@@ -381,16 +386,21 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
                                     'False)))
     `(ColumnDefinition ,type ,name (make-list ,@concrete-properties) ,nullable-clause)))
 
+(cl:defmacro CompositePrimaryKey (first-col cl:&rest rem-cols)
+  "Create a table with a multi-column primary key in a SQL query."
+  (cl:let ((cols (cl:cons first-col rem-cols)))
+    `(CompositePrimaryKey% (make-list ,@cols))))
 
-(cl:defmacro CreateTable (tbl-name opts-clauses col-clauses)
+(cl:defmacro CreateTable (tbl-name opts-clauses col-clauses cl:&optional tbl-prop-clauses)
   "Create a table in a SQL query."
   (cl:let ((col-def-clauses (cl:mapcar (cl:lambda (col-clause)
                                          (col-clause-to-col-def-clause
                                           (cl:first col-clause)
                                           (cl:second col-clause)
                                           (cl:cddr col-clause)))
-                                       col-clauses)))
-    `(CreateTable% ,tbl-name (make-list ,@opts-clauses) (make-list ,@col-def-clauses))))
+                                       col-clauses))
+           (tbl-prop-clause `(make-list ,@tbl-prop-clauses)))
+    `(CreateTable% ,tbl-name (make-list ,@opts-clauses) (make-list ,@col-def-clauses) ,tbl-prop-clause)))
 
 ;;;
 ;;; Compile Query -> SQL
@@ -495,6 +505,12 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
     (match opt
       ((IfNotExists) "IF NOT EXISTS")))
 
+  (declare table-prop-to-sql (TableProperty -> String))
+  (define (table-prop-to-sql prop)
+    (match prop
+      ((CompositePrimaryKey% tables)
+       (build-str "PRIMARY KEY (" (join-str ", " tables) ")"))))
+
   (define-type SqlQuery
     "A query that has been 'compiled' to a SQL query string and bound parameters."
     (SqlQuery String (List SqlValue)))
@@ -578,8 +594,12 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
        (SqlQuery
         (build-str "DROP TABLE " opt-sql tbl ";")
         (make-list)))
-      ((CreateTable% tbl-name create-table-opts col-defs)
+      ((CreateTable% tbl-name create-table-opts col-defs tbl-props)
        (let col-defs-sql = (join-str ", " (map col-def-to-sql col-defs)))
+       (let tbl-props-sql =
+         (if (== Nil tbl-props)
+             ""
+             (build-str ", " (join-str ", " (map table-prop-to-sql tbl-props)))))
        (let create-table-opts-sql =
          (join-str ""
                    (map (fn (opt)
@@ -588,5 +608,6 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
        (SqlQuery
         (build-str "CREATE TABLE " create-table-opts-sql tbl-name " ( "
                    col-defs-sql
+                   tbl-props-sql
                    ");")
         (make-list))))))

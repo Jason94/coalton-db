@@ -468,3 +468,18 @@ the right parameter list."
                          ");")
               ()
               result))
+
+(define-test test-create-table-composite-primary-key ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" ()
+                  ((IntType "id")
+                   (TextType "campaign"))
+                  ((CompositePrimaryKey "id" "campaign")))))
+  (is-sql-eql (build-str "CREATE TABLE test-table ("
+                         " id INTEGER NOT NULL,"
+                         " campaign TEXT NOT NULL,"
+                         " PRIMARY KEY (id, campaign)"
+                         ");")
+              ()
+              result))
