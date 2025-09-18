@@ -12,6 +12,7 @@
   :components ((:module "src"
                 :components
                 ((:file "utils")
+                 (:file "core")
                  (:file "queries"))))
   ;;                ;; (:file "utils")
   ;;                ;; (:file "core")

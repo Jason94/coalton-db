@@ -3,6 +3,7 @@
   (:use
    #:coalton
    #:coalton-prelude
+   #:coalton-db/core
    #:coalton-db/util)
   (:local-nicknames
    (:c #:coalton-library/cell)
@@ -13,16 +14,6 @@
    (:itr #:coalton-library/iterator))
   (:export
    ;;; Library Public
-   DatabaseAdapter
-   next-placeholder
-
-   SqlValue
-   SqlInt
-   SqlText
-   SqlBool
-   SqlNull
-   Value
-   Values
 
    SqlType
    IntType
@@ -32,7 +23,6 @@
    Cols
 
    RowCondition
-   Value
    True_
    False_
    Eq_
@@ -74,57 +64,7 @@
 
 (in-package :coalton-db/queries)
 
-(cl:declaim (cl:optimize (cl:speed 0) (cl:space 0) (cl:debug 3)))
-
 (named-readtables:in-readtable coalton:coalton)
-
-;;;
-;;; Database Adapter
-;;;
-
-(coalton-toplevel
-  (define-class (DatabaseAdapter :a)
-    (next-placeholder (ty:Proxy :a -> Optional String -> String))))
-
-;;;
-;;; Raw SQL Values
-;;;
-
-(coalton-toplevel
-  (repr :lisp)
-  (derive Eq)
-  (define-type SqlValue
-    "A runtime value inside of a SQL row."
-    (SqlInt Integer)
-    (SqlText String)
-    (SqlBool Boolean)
-    SqlNull)
-
-  (inline)
-  (declare Value (Into :a SqlValue => :a -> SqlValue))
-  (define Value into)
-
-  (define-instance (Into Integer SqlValue)
-    (define into SqlInt))
-
-  (define-instance (Into String SqlValue)
-    (define into SqlText))
-
-  (define-instance (Into Boolean SqlValue)
-    (define into SqlBool))
-
-  (define-instance (Into :a SqlValue => Into (Optional :a) SqlValue)
-    (define (into a)
-      (match a
-        ((None) SqlNull)
-        ((Some a) (into a))))))
-
-(cl:defmacro Values (cl:&rest vals)
-  "A list of raw SQL values."
-  `(the (List SqlValue)
-    (make-list ,@(cl:mapcar (cl:lambda (x)
-                              `(into ,x))
-                            vals))))
 
 ;;;
 ;;; Columns

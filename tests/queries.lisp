@@ -1,5 +1,6 @@
 (defpackage coalton-db/tests/queries
   (:use #:coalton #:coalton-prelude #:coalton-testing
+        #:coalton-db/core
         #:coalton-db/queries
         #:coalton-db/util)
   (:local-nicknames
