@@ -103,12 +103,6 @@ a type that can be passed directly to a DB implementation as a bound value."
      (SqlInt raw-val))
     ((cl:typep raw-val 'cl:string)
      (SqlText raw-val))
-    ;; ((coalton (== (lisp SqlType () type) IntType))
-    ;;  (SqlInt raw-val))
-    ;; ((coalton (== (lisp SqlType () type) TextType))
-    ;;  (SqlText raw-val))
-    ;; ((coalton (== (lisp SqlType () type) BoolType))
-    ;;  (SqlBool raw-val))
     (cl:t (cl:error (cl:format cl:nil "Unknown SQL type: ~a" raw-val)))))
 
 ;;;
@@ -134,7 +128,26 @@ a type that can be passed directly to a DB implementation as a bound value."
       (match val
         ((SqlText i) (Ok i))
         (_ (Err (<> (<> "Could not convert " (force-string val))
-                    " to a string.")))))))
+                    " to a string."))))))
+
+  (define-instance (ParseSql Boolean)
+    (define (parse-sql val)
+      (match val
+        ((SqlBool b) (Ok b))
+        ((SqlText s)
+         (cond
+           ((== s "FALSE") (Ok False))
+           ((== s "TRUE") (Ok True))
+           (True (Err (<> (<> "Could not convert " (force-string val))
+                          " to a boolean.")))))
+        (_ (Err (<> (<> "Could not convert " (force-string val))
+                    " to a boolean."))))))
+
+  (define-instance (ParseSql :a => ParseSql (Optional :a))
+    (define (parse-sql val)
+      (match val
+        ((SqlNull) (Ok None))
+        (_ (map Some (parse-sql val)))))))
 
 ;;;
 ;;; SQL Query

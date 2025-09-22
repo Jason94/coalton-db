@@ -35,13 +35,23 @@
       (sl:disconnect connection))
     Unit)
 
+  (declare norm-sqlite-types (SqlValue -> SqlValue))
+  (define (norm-sqlite-types val)
+    "Handle boolean values."
+    (match val
+      ((SqlBool b)
+       (SqlText
+        (if b "TRUE" "FALSE")))
+      (_ val)))
+
   (define-instance (DatabaseAdapter SqliteConnection)
     (define (next-placeholder _ _)
       "?")
     (define (run-query! cnxn (SqlQuery sql params))
-      (lisp :x (cnxn sql params)
+      (let normed-params = (map norm-sqlite-types params))
+      (lisp :x (cnxn sql normed-params)
         (cl:handler-case
-            (cl:let* ((unwrapped-params (cl:mapcar #'unwrap-sql-value params))
+            (cl:let* ((unwrapped-params (cl:mapcar #'unwrap-sql-value normed-params))
                       (rows (cl:apply
                              #'sl:execute-to-list
                              (cl:cons cnxn (cl:cons sql unwrapped-params)))))

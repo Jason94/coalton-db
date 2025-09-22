@@ -22,22 +22,37 @@
                (CreateTable "Volunteers" ()
                             (("id" IntType)
                              ("campaign" TextType)
-                             ("name" TextType)))))
+                             ("name" TextType)
+                             ("flagged" BoolType)
+                             ("nullable_bool" BoolType Nullable)
+                             ("second_nullable_bool" BoolType Nullable)))))
   (run-query! cnxn
               (to-sql
                (ty:proxy-of cnxn)
                (Insert (IntoTable "Volunteers")
-                       (Values 1 "product marketing" "Jane Doe")
-                       (Cols "id" "campaign" "name"))))
+                       (Values 1 "product marketing"
+                               "Jane Doe" True
+                               (the (Optional Integer) None) (Some False))
+                       (Cols "id" "campaign" "name" "flagged"
+                             "nullable_bool" "second_nullable_bool"))))
   (let result = (run-query! cnxn
                             (to-sql
                              (ty:proxy-of cnxn)
-                             (Select (Cols "id" "name")
+                             (Select (Cols "id" "name" "flagged" "nullable_bool" "second_nullable_bool")
                                      (From "Volunteers")))))
+  (disconnect-sqlite! cnxn)
   (let id-raw = (i# 0 (i# 0 (rst:ok-or-error result))))
   (let name-raw = (i# 1 (i# 0 (rst:ok-or-error result))))
+  (let flagged-raw = (i# 2 (i# 0 (rst:ok-or-error result))))
+  (let nullable-bool-raw = (i# 3 (i# 0 (rst:ok-or-error result))))
+  (let second-nullable-bool-raw = (i# 4 (i# 0 (rst:ok-or-error result))))
   (is (== (Ok 1)
           (parse-sql id-raw)))
   (is (== (Ok "Jane Doe")
           (parse-sql name-raw)))
-  )
+  (is (== (Ok True)
+          (parse-sql flagged-raw)))
+  (is (== (Ok (the (Optional Boolean) None))
+          (parse-sql nullable-bool-raw)))
+  (is (== (Ok (Some False))
+          (parse-sql second-nullable-bool-raw))))
