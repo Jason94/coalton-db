@@ -57,7 +57,6 @@
    Unique
    Nullable
 
-   SqlQuery
    to-sql
    ;;; Library Private
    ))
@@ -450,10 +449,6 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
     (match prop
       ((CompositePrimaryKey% tables)
        (build-str "PRIMARY KEY (" (join-str ", " tables) ")"))))
-
-  (define-type SqlQuery
-    "A query that has been 'compiled' to a SQL query string and bound parameters."
-    (SqlQuery String (List SqlValue)))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)

@@ -5,10 +5,13 @@
    #:coalton-prelude)
   (:local-nicknames
    (:l  #:coalton-library/list)
+   (:opt #:coalton-library/optional)
    )
   (:export
    #:join-str
-   #:build-str))
+   #:build-str
+   #:i#
+   #:force-string))
 (in-package :coalton-db/util)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -23,7 +26,16 @@
        (fold (fn (a b)
                (<> a (<> sep b)))
              (l:car strs)
-             (l:cdr strs))))))
+             (l:cdr strs)))))
+
+  (declare i# (UFix -> List :a -> :a))
+  (define (i# i lst)
+    (opt:from-some "List index out of bounds." (l:index i lst)))
+
+  (declare force-string (:a -> String))
+  (define (force-string x)
+    (lisp String (x)
+      (cl:format cl:nil "~a" x))))
 
 (cl:defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."

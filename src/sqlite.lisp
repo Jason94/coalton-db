@@ -1,0 +1,53 @@
+(cl:in-package :cl-user)
+(defpackage :coalton-db/sqlite
+  (:use
+   #:coalton
+   #:coalton-prelude
+   #:coalton-db/core)
+  (:local-nicknames
+   (:sl #:sqlite))
+  (:export
+   ;;; Library Public
+
+   #:SqliteConnection
+   #:connect-sqlite!
+   #:disconnect-sqlite!
+
+   ;;; Library Private
+   ))
+
+(in-package :coalton-db/sqlite)
+
+(named-readtables:in-readtable coalton:coalton)
+
+(coalton-toplevel
+  (repr :native sl:sqlite-handle)
+  (define-type SqliteConnection)
+
+  (declare connect-sqlite! (String -> SqliteConnection))
+  (define (connect-sqlite! connection-spec)
+    (lisp :a (connection-spec)
+      (sl:connect connection-spec)))
+
+  (declare disconnect-sqlite! (SqliteConnection -> Unit))
+  (define (disconnect-sqlite! connection)
+    (lisp :a (connection)
+      (sl:disconnect connection))
+    Unit)
+
+  (define-instance (DatabaseAdapter SqliteConnection)
+    (define (next-placeholder _ _)
+      "?")
+    (define (run-query! cnxn (SqlQuery sql params))
+      (lisp :x (cnxn sql params)
+        (cl:handler-case
+            (cl:let* ((unwrapped-params (cl:mapcar #'unwrap-sql-value params))
+                      (rows (cl:apply
+                             #'sl:execute-to-list
+                             (cl:cons cnxn (cl:cons sql unwrapped-params)))))
+              (Ok (cl:mapcar
+                   (cl:lambda (row)
+                     (cl:mapcar #'wrap-raw-sql-value row))
+                   rows)))
+          (cl:error (e)
+            (Err (QueryError (cl:format cl:nil "~a" e)))))))))

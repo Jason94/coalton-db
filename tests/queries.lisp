@@ -31,7 +31,9 @@
   (define-instance (DatabaseAdapter TestAdapter1)
     ;; TestAdapter1 uses a constant placeholder, '?', like SQLite
     (define (next-placeholder _ _)
-      "?"))
+      "?")
+    (define (run-query! _ _)
+      (Ok (make-list))))
 
   (define to-sql-test1 (to-sql (the (ty:Proxy TestAdapter1) ty:Proxy)))
 
@@ -48,7 +50,9 @@
                                       (do
                                        (last-num-str <- (s:strip-prefix "$" last-param-str))
                                        (s:parse-int last-num-str))))
-         (<> "$" (into (+ 1 last-n)))))))
+         (<> "$" (into (+ 1 last-n))))))
+    (define (run-query! _ _)
+      (Ok (make-list))))
 
   (define to-sql-test2 (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy))))
 

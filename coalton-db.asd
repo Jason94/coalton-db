@@ -13,7 +13,8 @@
                 :components
                 ((:file "utils")
                  (:file "core")
-                 (:file "queries"))))
+                 (:file "queries")
+                 (:file "sqlite"))))
   ;;                ;; (:file "utils")
   ;;                ;; (:file "core")
   ;;                ;; (:file "db")
@@ -31,7 +32,8 @@
                "cl-ppcre")
   :components ((:module "tests"
                 :components
-                ((:file "queries")
+                ((:file "core")
+                 (:file "queries")
                  (:file "sqlite")
                  (:file "package"))))
   :description "Test system for COALTON-DB."
