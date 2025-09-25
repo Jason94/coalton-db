@@ -17,13 +17,15 @@
    Values
    Row
 
-   ParseError
-   ParseResult
+   DbError
+   QueryError
+   ResultParseError
+   DbResult
+
    ParseSql
    parse-sql
 
    SqlQuery
-   QueryError
 
    DatabaseAdapter
    next-placeholder
@@ -51,6 +53,8 @@
     (SqlText String)
     (SqlBool Boolean)
     SqlNull)
+
+  ;; TODO: Replace using into for this with a custom ToSqlValue class, or something
 
   (inline)
   (declare Value (Into :a SqlValue => :a -> SqlValue))
@@ -106,29 +110,48 @@ a type that can be passed directly to a DB implementation as a bound value."
     (cl:t (cl:error (cl:format cl:nil "Unknown SQL type: ~a" raw-val)))))
 
 ;;;
+;;; Universal error type
+;;;
+
+(coalton-toplevel
+  (derive Eq)
+  (define-type DbError
+    (QueryError String)
+    (ResultParseError String))
+
+  (define-instance (Signalable DbError)
+    (define (error err)
+      (match err
+        ((QueryError str)
+         (error str))
+        ((ResultParseError str)
+         (error str)))))
+
+  (define-type-alias DbResult (Result DbError)))
+
+;;;
 ;;; Parse SQL Values
 ;;;
 
 (coalton-toplevel
-  (define-type-alias ParseError String)
-  (define-type-alias ParseResult (Result ParseError))
-
   (define-class (ParseSql :a)
-    (parse-sql (SqlValue -> ParseResult :a)))
+    (parse-sql (SqlValue -> DbResult :a)))
 
   (define-instance (ParseSql Integer)
     (define (parse-sql val)
       (match val
         ((SqlInt i) (Ok i))
-        (_ (Err (<> (<> "Could not convert " (force-string val))
-                    " to an integer."))))))
+        (_ (Err (ResultParseError
+                 (<> (<> "Could not convert " (force-string val))
+                     " to an integer.")))))))
 
   (define-instance (ParseSql String)
     (define (parse-sql val)
       (match val
         ((SqlText i) (Ok i))
-        (_ (Err (<> (<> "Could not convert " (force-string val))
-                    " to a string."))))))
+        (_ (Err (ResultParseError
+                 (<> (<> "Could not convert " (force-string val))
+                     " to a string.")))))))
 
   (define-instance (ParseSql Boolean)
     (define (parse-sql val)
@@ -138,10 +161,12 @@ a type that can be passed directly to a DB implementation as a bound value."
          (cond
            ((== s "FALSE") (Ok False))
            ((== s "TRUE") (Ok True))
-           (True (Err (<> (<> "Could not convert " (force-string val))
-                          " to a boolean.")))))
-        (_ (Err (<> (<> "Could not convert " (force-string val))
-                    " to a boolean."))))))
+           (True (Err (ResultParseError
+                       (<> (<> "Could not convert " (force-string val))
+                           " to a boolean."))))))
+        (_ (Err (ResultParseError
+                 (<> (<> "Could not convert " (force-string val))
+                     " to a boolean.")))))))
 
   (define-instance (ParseSql :a => ParseSql (Optional :a))
     (define (parse-sql val)
@@ -156,17 +181,7 @@ a type that can be passed directly to a DB implementation as a bound value."
 (coalton-toplevel
   (define-type SqlQuery
     "A query that has been 'compiled' to a SQL query string and bound parameters."
-    (SqlQuery String (List SqlValue)))
-
-  (derive Eq)
-  (define-type QueryError
-    (QueryError String))
-
-  (define-instance (Signalable QueryError)
-    (define (error (QueryError str))
-      (error str)))
-
-  (define-type-alias QueryResult (Result QueryError)))
+    (SqlQuery String (List SqlValue))))
 
 ;;;
 ;;; Database Adapter
@@ -175,4 +190,4 @@ a type that can be passed directly to a DB implementation as a bound value."
 (coalton-toplevel
   (define-class (DatabaseAdapter :a)
     (next-placeholder (ty:Proxy :a -> Optional String -> String))
-    (run-query! (:a -> SqlQuery -> QueryResult (List Row)))))
+    (run-query! (:a -> SqlQuery -> DbResult (List Row)))))

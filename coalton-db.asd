@@ -7,19 +7,15 @@
   :license "MIT"
   :depends-on ("alexandria"
                "sqlite"
-               "coalton"
-               "coalton-simple-io")
+               "coalton")
+  ;; "coalton-simple-io")
   :components ((:module "src"
                 :components
                 ((:file "utils")
                  (:file "core")
                  (:file "queries")
+                 (:file "dbm")
                  (:file "sqlite"))))
-  ;;                ;; (:file "utils")
-  ;;                ;; (:file "core")
-  ;;                ;; (:file "db")
-  ;;                ;; (:file "sqlite")
-  ;;                ))
   :description "SQL Database library for Coalton."
   :in-order-to ((test-op (test-op "coalton-db/tests"))))
 
@@ -35,6 +31,8 @@
                 ((:file "core")
                  (:file "queries")
                  (:file "sqlite")
+                 (:file "frm")
+                 (:file "dbm")
                  (:file "package"))))
   :description "Test system for COALTON-DB."
   :perform (test-op (op c) (symbol-call '#:coalton-db/tests '#:run-tests)))

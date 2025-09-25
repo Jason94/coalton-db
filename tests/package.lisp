@@ -1,6 +1,5 @@
 (defpackage #:coalton-db/tests
-  (:use #:coalton #:coalton-prelude #:coalton-testing
-        #:coalton-db/tests/queries)
+  (:use #:coalton #:coalton-prelude #:coalton-testing)
   (:export #:run-tests))
 (in-package #:coalton-db/tests)
 
@@ -14,5 +13,8 @@
   (fiasco:run-package-tests
    :packages '(#:coalton-db/tests/core-fiasco
                #:coalton-db/tests/queries-fiasco
-               #:coalton-db/tests/sqlite-fiasco)
+               #:coalton-db/tests/sqlite-fiasco
+               #:coalton-db/tests/frm-fiasco
+               #:coalton-db/tests/db-m-fiasco
+               )
    :interactive cl:t))
