@@ -10,7 +10,9 @@
    (:i #:coalton-library/monad/identity)
    (:f  #:coalton-library/monad/free)
    (:ft #:coalton-library/monad/freet)
-   (:ty #:coalton-library/types))
+   (:ty #:coalton-library/types)
+   (:io-t #:simple-io/term)
+   (:io-u #:simple-io/unique))
   (:export
    #:DBM
    #:DB
@@ -88,7 +90,7 @@ queries in some places."
 ;;;
 
 (coalton-toplevel
-  (declare run-dbM! ((DatabaseAdapter :d) (Monad :m) => :d -> DBM :m (DbResult :a) -> :m (DbResult :a)))
+  (declare run-dbM! ((DatabaseAdapter :d) (Monad :m) => :d -> DBM :m :a -> :m :a))
   (define (run-dbM! cnxn op)
     (do
      (step <- (ft:run-freeT op))
@@ -100,6 +102,18 @@ queries in some places."
            (let result = (run-query! cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
            (run-dbM! cnxn (next result))))))))
 
-  (declare run-db! (DatabaseAdapter :d => :d -> DB (DbResult :a) -> DbResult :a))
+  (declare run-db! (DatabaseAdapter :d => :d -> DB :a -> :a))
   (define (run-db! cnxn op)
     (i:run-identity (run-dbM! cnxn op))))
+
+;;;
+;;; Other DBM Instances
+;;;
+
+(coalton-toplevel
+  (define-instance (io-u:MonadIoUnique :m => io-u:MonadIoUnique (DBM :m))
+    (define io-u:new-unique (lift io-u:new-unique)))
+
+  (define-instance (io-t:MonadIoTerm :m => io-t:MonadIoTerm (DBM :m))
+    (define io-t:write-line (compose lift io-t:write-line))
+    (define io-t:read-line (lift io-t:read-line))))

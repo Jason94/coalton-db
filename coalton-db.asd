@@ -7,8 +7,8 @@
   :license "MIT"
   :depends-on ("alexandria"
                "sqlite"
-               "coalton")
-  ;; "coalton-simple-io")
+               "coalton"
+               "coalton-simple-io")
   :components ((:module "src"
                 :components
                 ((:file "utils")
@@ -31,8 +31,17 @@
                 ((:file "core")
                  (:file "queries")
                  (:file "sqlite")
-                 (:file "frm")
                  (:file "dbm")
                  (:file "package"))))
   :description "Test system for COALTON-DB."
   :perform (test-op (op c) (symbol-call '#:coalton-db/tests '#:run-tests)))
+
+(defsystem "coalton-db/examples"
+  :author "Jason Walker"
+  :license "MIT"
+  :depends-on ("coalton-db"
+               "coalton-simple-io")
+  :components ((:module "examples"
+                :components
+                ((:file "io-example"))))
+  :description "Test system for COALTON-DB.")
