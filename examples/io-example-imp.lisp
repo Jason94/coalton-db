@@ -19,6 +19,19 @@
 
 (named-readtables:in-readtable coalton:coalton)
 
+;;;
+;;; This example implements a simple database program in the imperative style.
+;;; The program uses the SQL Query API, but doesn't use the FRM.
+;;;
+;;; The database keeps track of users with a name and an age. The user is prompted
+;;; at the terminal to enter data, which is stored in the database. When the user
+;;; is done, the table is retrieved and printed back to the terminal.
+;;;
+;;; Usage:
+;;;   CL-USER> (asdf:load-system "coalton-db/examples")
+;;;   CL-USER> (in-package :coalton-db/examples/io-imp)
+;;;   COALTON-DB/EXAMPLES/IO-IMP> (run-main)
+
 (coalton-toplevel
   (define *next-id* (c:new 0))
 
