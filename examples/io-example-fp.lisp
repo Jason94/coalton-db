@@ -1,5 +1,5 @@
 (cl:in-package :cl-user)
-(defpackage :coalton-db/examples/io
+(defpackage :coalton-db/examples/io-fp
   (:use
    #:coalton
    #:coalton-prelude
@@ -9,11 +9,12 @@
    #:coalton-db/core
    #:coalton-db/queries
    #:coalton-db/db-m
+   #:coalton-db/api-fp
    #:coalton-db/sqlite)
   (:local-nicknames
    (:u #:simple-io/unique)
    (:s #:coalton-library/string)))
-(in-package :coalton-db/examples/io)
+(in-package :coalton-db/examples/io-fp)
 
 (named-readtables:in-readtable coalton:coalton)
 
@@ -70,8 +71,8 @@
   (declare main (IO Unit))
   (define main
     (do
-     (run-dbm!
-      (connect-sqlite! "database.db")
+     (cnxn <- (wrap-io (connect-sqlite! "database.db")))
+     (run-dbm! cnxn
       (do
        (write-line "Creating user table...")
        (query-rows create-user-table)
@@ -88,7 +89,8 @@
             (traverse
              (compose write-line force-string)
              tables))
-           (pure Unit)))))))))
+           (pure Unit))))))
+      (wrap-io (disconnect-sqlite! cnxn)))))
 
 (cl:defun run-main ()
   (coalton (run! main)))

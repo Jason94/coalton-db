@@ -47,5 +47,6 @@
                "coalton-simple-io")
   :components ((:module "examples"
                 :components
-                ((:file "io-example"))))
+                ((:file "io-example-fp")
+                 (:file "io-example-imp"))))
   :description "Test system for COALTON-DB.")
