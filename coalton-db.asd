@@ -16,6 +16,7 @@
                  (:file "queries")
                  (:file "dbm")
                  (:file "api-fp")
+                 (:file "api-imp")
                  (:file "sqlite"))))
   :description "SQL Database library for Coalton."
   :in-order-to ((test-op (test-op "coalton-db/tests"))))
@@ -33,6 +34,7 @@
                  (:file "queries")
                  (:file "sqlite")
                  (:file "api-fp")
+                 (:file "api-imp")
                  (:file "package"))))
   :description "Test system for COALTON-DB."
   :perform (test-op (op c) (symbol-call '#:coalton-db/tests '#:run-tests)))

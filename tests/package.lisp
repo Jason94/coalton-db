@@ -15,5 +15,6 @@
                #:coalton-db/tests/queries-fiasco
                #:coalton-db/tests/sqlite-fiasco
                #:coalton-db/tests/api-fp-fiasco
+               #:coalton-db/tests/api-imp-fiasco
                )
    :interactive cl:t))

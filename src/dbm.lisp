@@ -22,6 +22,7 @@
    ;;; Library Private
    #:Queryable
    #:to-query
+   #:unwrap-query-container
 
    #:QueryRows
    ))
