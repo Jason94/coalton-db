@@ -1,19 +1,20 @@
-(defpackage coalton-db/tests/db-m
+(defpackage coalton-db/tests/api-fp
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/util
         #:coalton-db/core
         #:coalton-db/queries
-        #:coalton-db/db-m)
+        #:coalton-db/db-m
+        #:coalton-db/api-fp)
   (:local-nicknames
    (:rt #:coalton-library/monad/resultt)
    (:sq #:coalton-db/sqlite)
    (:db-c #:coalton-db/core)))
-(in-package :coalton-db/tests/db-m)
+(in-package :coalton-db/tests/api-fp)
 
 (named-readtables:in-readtable coalton:coalton)
 
-(fiasco:define-test-package #:coalton-db/tests/db-m-fiasco)
-(coalton-fiasco-init #:coalton-db/tests/db-m-fiasco)
+(fiasco:define-test-package #:coalton-db/tests/api-fp-fiasco)
+(coalton-fiasco-init #:coalton-db/tests/api-fp-fiasco)
 
 ;; NOTE: These tests are integration tests. In order to properly test the
 ;; DB monad, we're going to connect to an in-memory SQLite database.

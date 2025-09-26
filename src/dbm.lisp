@@ -8,19 +8,23 @@
    )
   (:local-nicknames
    (:i #:coalton-library/monad/identity)
-   (:f  #:coalton-library/monad/free)
    (:ft #:coalton-library/monad/freet)
    (:ty #:coalton-library/types)
    (:io-t #:simple-io/term)
    (:io-u #:simple-io/unique))
   (:export
+   ;;; Library Public
    #:DBM
    #:DB
 
-   #:query-rows
-
    #:run-dbM!
-   #:run-db!))
+   #:run-db!
+   ;;; Library Private
+   #:Queryable
+   #:to-query
+
+   #:QueryRows
+   ))
 (cl:in-package :coalton-db/db-m)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -79,11 +83,7 @@ queries in some places."
         ((QueryRows qry cont) (QueryRows qry (map f cont))))))
 
   (define-type-alias DBM (ft:FReeT DbF))
-  (define-type-alias DB (DBM i:Identity))
-
-  (declare query-rows ((Monad :m) (Queryable :q) => :q -> DBM :m (DbResult (List Row))))
-  (define (query-rows qry)
-    (f:liftF (QueryRows (to-query qry) id))))
+  (define-type-alias DB (DBM i:Identity)))
 
 ;;;
 ;;; Interpreter

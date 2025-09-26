@@ -14,7 +14,6 @@
    :packages '(#:coalton-db/tests/core-fiasco
                #:coalton-db/tests/queries-fiasco
                #:coalton-db/tests/sqlite-fiasco
-               #:coalton-db/tests/frm-fiasco
-               #:coalton-db/tests/db-m-fiasco
+               #:coalton-db/tests/api-fp-fiasco
                )
    :interactive cl:t))
