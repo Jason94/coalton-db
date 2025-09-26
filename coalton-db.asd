@@ -14,6 +14,7 @@
                 ((:file "utils")
                  (:file "core")
                  (:file "queries")
+                 (:file "api-helpers")
                  (:file "dbm")
                  (:file "api-fp")
                  (:file "api-imp")

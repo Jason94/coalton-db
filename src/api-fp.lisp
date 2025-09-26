@@ -6,6 +6,7 @@
    #:coalton-db/core
    #:coalton-db/queries
    #:coalton-db/db-m
+   #:coalton-db/api-helpers
    )
   (:local-nicknames
    (:f  #:coalton-library/monad/free))

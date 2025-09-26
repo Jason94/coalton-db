@@ -5,8 +5,7 @@
    #:coalton-prelude
    #:coalton-db/core
    #:coalton-db/queries
-   #:coalton-db/db-m
-   )
+   #:coalton-db/api-helpers)
   (:local-nicknames
    (:r #:coalton-library/result)
    (:ty #:coalton-library/types))
