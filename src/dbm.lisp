@@ -22,6 +22,7 @@
    #:run-db!
    ;;; Library Private
    #:QueryRows
+   #:ExecuteQuery
    ))
 (cl:in-package :coalton-db/db-m)
 
@@ -34,12 +35,14 @@
 
 (coalton-toplevel
   (define-type (DbF :next)
-    (QueryRows QueryContainer (DbResult (List Row) -> :next)))
+    (QueryRows QueryContainer (DbResult (List Row) -> :next))
+    (ExecuteQuery QueryContainer (DbResult Unit -> :next)))
 
   (define-instance (Functor DbF)
     (define (map f db-f)
       (match db-f
-        ((QueryRows qry cont) (QueryRows qry (map f cont))))))
+        ((QueryRows qry cont) (QueryRows qry (map f cont)))
+        ((ExecuteQuery qry cont) (ExecuteQuery qry (map f cont))))))
 
   (define-type-alias DBM (ft:FReeT DbF))
   (define-type-alias DB (DBM i:Identity)))
@@ -59,6 +62,9 @@
         (match op
           ((QueryRows qry next)
            (let result = (run-query! cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
+           (run-dbM! cnxn (next result)))
+          ((ExecuteQuery qry next)
+           (let result = (execute-query!_ cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
            (run-dbM! cnxn (next result))))))))
 
   (declare run-db! (DatabaseAdapter :d => :d -> DB :a -> :a))

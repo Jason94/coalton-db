@@ -63,7 +63,7 @@
        ((Ok age)
         (do
          (id <- (map u:to-int u:new-unique))
-         (result <- (query-rows
+         (result <- (execute-query
                      (Insert (IntoTable "users")
                              (Values id name age)
                              (Cols "id" "name" "age"))))
@@ -90,7 +90,7 @@
      (run-dbm! cnxn
       (do
        (write-line "Creating user table...")
-       (query-rows create-user-table)
+       (execute-query create-user-table)
        (insert-tables)
        (result <- get-tables)
        (match result

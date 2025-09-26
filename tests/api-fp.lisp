@@ -62,3 +62,9 @@
   (let result = (run-db! cnxn (select-value (Value False))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok False) result)))
+
+(define-test test-execute-query ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let result = (run-db! cnxn (execute-query (DropTable "test" IfExists))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok Unit) result)))

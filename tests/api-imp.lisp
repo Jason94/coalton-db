@@ -49,3 +49,17 @@
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (parse-sql (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
+
+(define-test test-execute-query ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (DropTable "test" IfExists))
+  (let result = (execute-query! cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok Unit) result)))
+
+(define-test test-execute-query-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (DropTable "test" IfExists))
+  (let result = (execute-query!# cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== Unit result)))

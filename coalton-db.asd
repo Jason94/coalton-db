@@ -31,8 +31,7 @@
                "cl-ppcre")
   :components ((:module "tests"
                 :components
-                ((:file "core")
-                 (:file "queries")
+                ((:file "queries")
                  (:file "sqlite")
                  (:file "api-fp")
                  (:file "api-imp")

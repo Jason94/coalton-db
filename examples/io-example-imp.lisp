@@ -28,9 +28,11 @@
 ;;; is done, the table is retrieved and printed back to the terminal.
 ;;;
 ;;; Usage:
+;;;
 ;;;   CL-USER> (asdf:load-system "coalton-db/examples")
 ;;;   CL-USER> (in-package :coalton-db/examples/io-imp)
 ;;;   COALTON-DB/EXAMPLES/IO-IMP> (run-main)
+;;;
 
 (coalton-toplevel
   (define *next-id* (c:new 0))
@@ -73,7 +75,7 @@
       ((Ok age)
        (let id = (next-id!))
        (let result =
-         (query-rows! cnxn
+         (execute-query! cnxn
                       (Insert (IntoTable "users")
                               (Values id name age)
                               (Cols "id" "name" "age"))))
@@ -96,7 +98,7 @@
   (define (main)
     (let cnxn = (connect-sqlite! ":memory:"))
     (print "Creating user table...")
-    (query-rows! cnxn create-user-table)
+    (execute-query! cnxn create-user-table)
     (insert-tables! cnxn)
     (let result = (get-tables! cnxn))
     (match result
