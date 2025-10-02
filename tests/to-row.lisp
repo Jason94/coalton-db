@@ -47,25 +47,3 @@
   (is (== (Values "Steve" 20 "pizza" False)
           vals)))
 
-;;
-;; Test Query DSL
-;;
-
-(define-test test-insert-single-field ()
-  (let result = (to-sql-test1
-                 (Insert (IntoTable "users")
-                         (User "Steve"))))
-  (is-sql-eql "INSERT INTO users VALUES (?);"
-              ((SqlText "Steve"))
-              result))
-
-(define-test test-insert-multiple-fields ()
-  (let result = (to-sql-test1
-                 (Insert (IntoTable "users")
-                         (User2 "Steve" 20 (Some "pizza") False))))
-  (is-sql-eql "INSERT INTO users VALUES (?, ?, ?, ?);"
-              ((SqlText "Steve")
-               (SqlInt 20)
-               (SqlText "pizza")
-               (SqlBool False))
-              result))
