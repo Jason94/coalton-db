@@ -30,6 +30,17 @@
   (is (== (Ok True)
           (parse-row (Values True)))))
 
+(define-test test-parse-some ()
+  (is (== (Ok (Some 10))
+          (parse-row (Values 10)))))
+
+(define-test test-parse-none ()
+  (let result = (the (DbResult (Optional Integer))
+                     (parse-row (Values (the (Optional Integer)
+                                             None)))))
+  (is (== (Ok None)
+          result)))
+
 (define-test test-parse-errors-type-mismatch ()
   (let result = (the (DbResult Integer)
                      (parse-row (Values "Text"))))

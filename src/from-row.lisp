@@ -91,6 +91,19 @@
   (define-simple-parser Integer SqlInt)
   (define-simple-parser String SqlText)
   (define-simple-parser Boolean SqlBool)
+
+  (define-instance (ParseSqlValue :p => ParseSqlValue (Optional :p))
+    (define sql-value-parser
+      (RowParser (fn (row)
+                   (match row
+                     ((Nil)
+                      (Err (ResultParseError "Ran out of SQL values to parse.")))
+                     ((Cons (SqlNull) rest)
+                      (Ok (Tuple None rest)))
+                      (_
+                       (do
+                        ((Tuple val rest) <- (run-row-parser sql-value-parser row))
+                        (pure (Tuple (Some val) rest)))))))))
   )
 
 (cl:defmacro define-row-parser (constructor cl:&rest sub-parsers)
