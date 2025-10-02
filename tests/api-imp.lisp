@@ -2,6 +2,9 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/util
         #:coalton-db/core
+        #:coalton-db/to-row
+        #:coalton-db/from-row
+        #:coalton-db/schema
         #:coalton-db/queries
         #:coalton-db/db-m
         #:coalton-db/api-imp)
@@ -15,6 +18,10 @@
 
 (fiasco:define-test-package #:coalton-db/tests/api-imp-fiasco)
 (coalton-fiasco-init #:coalton-db/tests/api-imp-fiasco)
+
+;;;
+;;; Test Sql Queries
+;;;
 
 (define-test test-run-one-query ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
@@ -63,3 +70,39 @@
   (let result = (execute-query!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
   (is (== Unit result)))
+
+;;;
+;;; Test FRM
+;;;
+
+(coalton-toplevel
+  (derive Eq)
+  (define-struct SimpleUser
+    (name String)
+    (verified? Boolean))
+
+  (define simple-user-table
+    (make-schema
+     "users"
+     ((column "name" TextType PrimaryKey)
+      (column "verified" BoolType))))
+
+  (define-row-parser SimpleUser
+    sql-value-parser
+    sql-value-parser)
+
+  (define-instance (ToRow SimpleUser)
+    (define (to-row user)
+      (build-row user .name .verified?))))
+
+(define-test test-select-value ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (execute-query!# cnxn (CreateSchema simple-user-table))
+  (execute-query!# cnxn (Insert (IntoTable "users")
+                                (to-row user)))
+  (let result = (query-vals! cnxn (Select AllCols
+                                          (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user))
+          result)))

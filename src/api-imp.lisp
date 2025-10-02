@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-db/core
+   #:coalton-db/from-row
    #:coalton-db/queries
    #:coalton-db/api-helpers)
   (:local-nicknames
@@ -15,6 +16,7 @@
    #:query-rows!#
    #:execute-query!
    #:execute-query!#
+   #:query-vals!
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -37,4 +39,12 @@
 
   (declare execute-query!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> Unit))
   (define (execute-query!# cnxn qry)
-    (r:ok-or-error (execute-query! cnxn qry))))
+    (r:ok-or-error (execute-query! cnxn qry)))
+
+  (declare query-vals! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlValue :p) =>
+                        :d -> :q -> DbResult (List :p)))
+  (define (query-vals! cnxn qry)
+    (>>= (query-rows! cnxn qry)
+         (traverse parse-row)))
+
+  )

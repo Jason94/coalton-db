@@ -13,7 +13,8 @@
   (fiasco:run-package-tests
    :packages '(#:coalton-db/tests/to-row-fiasco
                #:coalton-db/tests/queries-fiasco
-               #:coalton-db/tests/queries-to-row-fiasco
+               #:coalton-db/tests/from-row-fiasco
+               #:coalton-db/tests/to-row-fiasco
                #:coalton-db/tests/schema-fiasco
                #:coalton-db/tests/persistable-fiasco
                #:coalton-db/tests/sqlite-fiasco

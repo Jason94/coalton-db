@@ -30,6 +30,14 @@
   (is (== (Ok True)
           (parse-row (Values True)))))
 
+(define-test test-parse-bool-true-str ()
+  (is (== (Ok True)
+          (parse-row (Values "TRUE")))))
+
+(define-test test-parse-bool-false-str ()
+  (is (== (Ok False)
+          (parse-row (Values "FALSE")))))
+
 (define-test test-parse-some ()
   (is (== (Ok (Some 10))
           (parse-row (Values 10)))))

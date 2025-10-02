@@ -9,6 +9,7 @@
    )
   (:export
    ;;; Library Public
+   #:ParseSqlValue
    #:parse-row
    #:define-row-parser
    #:sql-value-parser
@@ -95,7 +96,24 @@
 (coalton-toplevel
   (define-simple-parser Integer SqlInt)
   (define-simple-parser String SqlText)
-  (define-simple-parser Boolean SqlBool)
+
+  (define-instance (ParseSqlValue Boolean)
+    (define sql-value-parser
+      (RowParser (fn (row)
+                   (match row
+                     ((Nil)
+                      (Err (ResultParseError "Ran out of SQL values to parse.")))
+                     ((Cons (SqlBool b) rest)
+                      (Ok (Tuple b rest)))
+                     ((Cons (SqlText "TRUE") rest)
+                      (Ok (Tuple True rest)))
+                     ((Cons (SqlText "FALSE") rest)
+                      (Ok (Tuple False rest)))
+                     ((Cons val _)
+                      (Err (ResultParseError (build-str "Expected "
+                                                        "SqlBool"
+                                                        " received: "
+                                                        (force-string val))))))))))
 
   (define-instance (ParseSqlValue :p => ParseSqlValue (Optional :p))
     (define sql-value-parser
