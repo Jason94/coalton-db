@@ -41,6 +41,10 @@
   (is (== (Ok None)
           result)))
 
+(define-test test-parse-tuple ()
+  (is (== (Ok (Tuple 10 "Text"))
+          (parse-row (Values 10 "Text")))))
+
 (define-test test-parse-errors-type-mismatch ()
   (let result = (the (DbResult Integer)
                      (parse-row (Values "Text"))))

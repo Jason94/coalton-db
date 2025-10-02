@@ -87,6 +87,11 @@
                                                          " received: "
                                                          (force-string val)))))))))))
 
+(cl:defmacro define-row-parser (constructor cl:&rest sub-parsers)
+  `(define-instance (ParseSqlValue ,constructor)
+     (define sql-value-parser
+       (liftAn ,constructor ,@sub-parsers))))
+
 (coalton-toplevel
   (define-simple-parser Integer SqlInt)
   (define-simple-parser String SqlText)
@@ -104,9 +109,18 @@
                        (do
                         ((Tuple val rest) <- (run-row-parser sql-value-parser row))
                         (pure (Tuple (Some val) rest)))))))))
-  )
 
-(cl:defmacro define-row-parser (constructor cl:&rest sub-parsers)
-  `(define-instance (ParseSqlValue ,constructor)
-     (define sql-value-parser
-       (liftAn ,constructor ,@sub-parsers))))
+  (define-instance ((ParseSqlValue :a) (ParseSqlValue :b) => ParseSqlValue (Tuple :a :b))
+    (define sql-value-parser
+      (RowParser (fn (row)
+                   (match row
+                     ((Nil)
+                      (Err (ResultParseError "Ran out of SQL values to parse.")))
+                     ((Cons _ (Nil))
+                      (Err (ResultParseError "Ran out of SQL values to parse.")))
+                      (_
+                       (do
+                        ((Tuple a rest1) <- (run-row-parser sql-value-parser row))
+                        ((Tuple b rest2) <- (run-row-parser sql-value-parser rest1))
+                        (pure (Tuple (Tuple a b) rest2)))))))))
+  )
