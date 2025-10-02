@@ -5,7 +5,6 @@
    #:coalton-prelude
    #:coalton-db/core)
   (:local-nicknames
-   (:p #:coalton-db/persistable)
    )
   (:export
    ;;; Library Public
