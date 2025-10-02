@@ -98,3 +98,17 @@
                          ");")
               ()
               result))
+
+(define-test test-drop-simple-schema ()
+  (let result =
+    (to-sql-test1 (DropSchema simple-table)))
+  (is-sql-eql "DROP TABLE users;"
+              ()
+              result))
+
+(define-test test-drop-opts-simple-schema ()
+  (let result =
+    (to-sql-test1 (DropSchema simple-table IfExists)))
+  (is-sql-eql "DROP TABLE IF EXISTS users;"
+              ()
+              result))

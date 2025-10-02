@@ -5,7 +5,8 @@
    #:coalton-prelude
    #:coalton-db/util
    #:coalton-db/core
-   #:coalton-db/queries)
+   #:coalton-db/queries
+   )
   (:local-nicknames
    )
   (:export
@@ -13,6 +14,7 @@
    #:column
    #:make-schema
    #:CreateSchema
+   #:DropSchema
 
    ;;; Library Private
    ))
@@ -57,3 +59,6 @@
 
 (cl:defmacro CreateSchema (schema cl:&optional create-opts)
   `(CreateSchema% ,schema (make-list ,@create-opts)))
+
+(cl:defmacro DropSchema (schema cl:&rest drop-opts)
+  `(DropTable (.tbl-name ,schema) ,@drop-opts))
