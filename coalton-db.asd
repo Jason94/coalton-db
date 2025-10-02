@@ -14,6 +14,7 @@
                 :components
                 ((:file "utils")
                  (:file "core")
+                 (:file "persistable")
                  (:file "to-row")
                  (:file "queries")
                  (:file "api-helpers")
@@ -35,8 +36,10 @@
                 :serial t
                 :components
                 ((:file "test-utils")
-                 (:file "queries")
                  (:file "to-row")
+                 (:file "persistable")
+                 (:file "queries")
+                 (:file "queries-to-row")
                  (:file "sqlite")
                  (:file "api-fp")
                  (:file "api-imp")

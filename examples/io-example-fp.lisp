@@ -92,6 +92,7 @@
        (write-line "Creating user table...")
        (execute-query create-user-table)
        (insert-tables)
+       (write-line (<> "Update result: " (force-string update-res)))
        (result <- get-tables)
        (match result
          ((Err e)
