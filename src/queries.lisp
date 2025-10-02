@@ -4,6 +4,7 @@
    #:coalton
    #:coalton-prelude
    #:coalton-db/core
+   #:coalton-db/to-row
    #:coalton-db/util)
   (:local-nicknames
    (:c #:coalton-library/cell)
@@ -291,7 +292,7 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
   (cl:let ((cols-clause (cl:if cols
                                `(Some ,cols)
                                `None)))
-    `(Insert% ,into-stmt ,values ,cols-clause)))
+    `(Insert% ,into-stmt (to-row ,values) ,cols-clause)))
 
 (cl:defmacro Update (tbl set-tuples cl:&rest query-opts)
   "Update values in the given table in a SQL query."

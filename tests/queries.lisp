@@ -2,7 +2,8 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/core
         #:coalton-db/queries
-        #:coalton-db/util)
+        #:coalton-db/util
+        #:coalton-db/tests/test-utils)
   (:local-nicknames
    (:opt #:coalton-library/optional)
    (:ty #:coalton-library/types)
@@ -14,56 +15,6 @@
 
 (fiasco:define-test-package #:coalton-db/tests/queries-fiasco)
 (coalton-fiasco-init #:coalton-db/tests/queries-fiasco)
-
-(coalton-toplevel
-  (declare norm (String -> String))
-  (define (norm s)
-    "Return S with every run of whitespace collapsed to a single space."
-    (lisp String (s)
-      (cl-ppcre:regex-replace-all "\\s+" s " ")))
-
-  ;; NOTE: For the purpose of testing, we will use the same test adapter, unless
-  ;; there is an explicit difference we need to test. The purpose of *this*
-  ;; test suite is not to test that the different database adapters work properly.
-  ;; The purpose is just to test that query generation responds to adapters correctly.
-  (define-type TestAdapter1 TestAdapter1)
-
-  (define-instance (DatabaseAdapter TestAdapter1)
-    ;; TestAdapter1 uses a constant placeholder, '?', like SQLite
-    (define (next-placeholder _ _)
-      "?")
-    (define (run-query! _ _)
-      (Ok (make-list))))
-
-  (define to-sql-test1 (to-sql (the (ty:Proxy TestAdapter1) ty:Proxy)))
-
-  (define-type TestAdapter2 TestAdapter2)
-
-  (define-instance (DatabaseAdapter TestAdapter2)
-    ;; TestAdapter2 uses an index-based placeholder - $1, $2, etc - like Postgres
-    (define (next-placeholder _ last-param-str?)
-      (match last-param-str?
-        ((None)
-         "$0")
-        ((Some last-param-str)
-         (let last-n = (opt:from-some "Invalid last param provided"
-                                      (do
-                                       (last-num-str <- (s:strip-prefix "$" last-param-str))
-                                       (s:parse-int last-num-str))))
-         (<> "$" (into (+ 1 last-n))))))
-    (define (run-query! _ _)
-      (Ok (make-list))))
-
-  (define to-sql-test2 (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy))))
-
-(cl:defmacro is-sql-eql (sql-str-a params-a sql-b)
-  "Test if a sql queriy has (1) the right normalized query string and (2) has
-the right parameter list."
-  ;; NOTE: This leaks the symbols... it's probably fine...
-  `(progn
-     (let (SqlQuery sql-str-b params-b) = ,sql-b)
-     (is (== (norm ,sql-str-a) (norm sql-str-b)))
-     (is (== (make-list ,@params-a) params-b))))
 
 ;;;
 ;;; SELECT Tests

@@ -10,9 +10,11 @@
                "coalton"
                "coalton-simple-io")
   :components ((:module "src"
+                :serial t
                 :components
                 ((:file "utils")
                  (:file "core")
+                 (:file "to-row")
                  (:file "queries")
                  (:file "api-helpers")
                  (:file "dbm")
@@ -30,8 +32,11 @@
                "fiasco"
                "cl-ppcre")
   :components ((:module "tests"
+                :serial t
                 :components
-                ((:file "queries")
+                ((:file "test-utils")
+                 (:file "queries")
+                 (:file "to-row")
                  (:file "sqlite")
                  (:file "api-fp")
                  (:file "api-imp")

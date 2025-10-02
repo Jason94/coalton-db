@@ -79,6 +79,4 @@
   (define-instance (io-u:MonadIoUnique :m => io-u:MonadIoUnique (DBM :m))
     (define io-u:new-unique (lift io-u:new-unique)))
 
-  (define-instance (io-t:MonadIoTerm :m => io-t:MonadIoTerm (DBM :m))
-    (define io-t:write-line (compose lift io-t:write-line))
-    (define io-t:read-line (lift io-t:read-line))))
+  (io-t:derive-monad-io-term (DBM :m)))
