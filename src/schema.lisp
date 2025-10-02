@@ -3,7 +3,6 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-library/experimental/loops
    #:coalton-db/util
    #:coalton-db/core
    #:coalton-db/queries)
@@ -26,11 +25,14 @@
 (coalton-toplevel
   (define-struct Schema
     (tbl-name String)
-    (col-specs (List ColumnDefinition)))
+    (col-specs (List ColumnDefinition))
+    (tbl-props (List TableProperty)))
 
   (declare contains-pkey? (Schema -> Boolean))
   (define (contains-pkey? s)
-    (contains? PrimaryKey (>>= (.col-specs s) .properties)))
+    (or
+     (contains? PrimaryKey (>>= (.col-specs s) .properties))
+     (contains-where? is-composite-pkey? (.tbl-props s))))
 
   (define default-pkey-col-def
      (ColumnDefinition "id" IntType (make-list PrimaryKey) False))
@@ -45,14 +47,16 @@
      (.tbl-name schema)
      (make-list)
      col-specs
-     (make-list)))
+     (.tbl-props schema)))
   )
 
 (cl:defmacro column (col-name col-type cl:&rest properties)
   (col-clause-to-col-def-clause col-name col-type properties))
 
-(cl:defmacro make-schema (tbl-name col-clauses)
+(cl:defmacro make-schema (tbl-name col-clauses cl:&optional tbl-prop-clauses)
   `(Schema
     ,tbl-name
     (make-list
-     ,@col-clauses)))
+     ,@col-clauses)
+    (make-list
+     ,@tbl-prop-clauses)))

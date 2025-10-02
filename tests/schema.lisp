@@ -50,3 +50,40 @@
                          ");")
               ()
               result))
+
+(coalton-toplevel
+  (define properties-table
+    (make-schema
+     "users"
+     ((column "name" TextType Unique)
+      (column "age" IntType Nullable)))))
+
+(define-test test-create-properties-schema ()
+  (let result =
+    (to-sql-test1 (CreateSchema properties-table)))
+  (is-sql-eql (build-str "CREATE TABLE users ("
+                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " name TEXT UNIQUE NOT NULL,"
+                         " age INTEGER"
+                         ");")
+              ()
+              result))
+
+(coalton-toplevel
+  (define composite-pkey-table
+    (make-schema
+     "users"
+     ((column "name" TextType)
+      (column "age" IntType))
+     ((CompositePrimaryKey "name" "age")))))
+
+(define-test test-create-composite-pkey-schema ()
+  (let result =
+    (to-sql-test1 (CreateSchema composite-pkey-table)))
+  (is-sql-eql (build-str "CREATE TABLE users ("
+                         " name TEXT NOT NULL,"
+                         " age INTEGER NOT NULL,"
+                         " PRIMARY KEY (name, age)"
+                         ");")
+              ()
+              result))

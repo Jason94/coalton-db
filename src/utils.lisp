@@ -14,6 +14,7 @@
    #:i#
    #:force-string
    #:contains?
+   #:contains-where?
    ))
 (in-package :coalton-db/util)
 
@@ -44,7 +45,16 @@
   (define (contains? elt lst)
     (match (l:elemindex elt lst)
       ((Some _) True)
-      ((None) False))))
+      ((None) False)))
+
+  (declare contains-where? ((:a -> Boolean) -> List :a -> Boolean))
+  (define (contains-where? f lst)
+    (match lst
+      ((Nil) False)
+      ((Cons x rem)
+       (if (f x)
+           True
+           (contains-where? f rem))))))
 
 (cl:defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."

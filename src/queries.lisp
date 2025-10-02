@@ -52,7 +52,7 @@
    IfExists
    CreateTable
    IfNotExists
-   CompositePrimaryKey
+   #:CompositePrimaryKey
 
    PrimaryKey
    Unique
@@ -62,7 +62,9 @@
    ;;; Library Private
    #:ColumnDefinition
    #:col-clause-to-col-def-clause
+   #:is-composite-pkey?
    #:CreateTable%
+   #:TableProperty
    ))
 
 (in-package :coalton-db/queries)
@@ -254,6 +256,11 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
   (derive Eq)
   (define-type TableProperty
     (CompositePrimaryKey% (List SqlTable)))
+
+  (declare is-composite-pkey? (TableProperty -> Boolean))
+  (define (is-composite-pkey? tbl-prop)
+    (match tbl-prop
+      ((CompositePrimaryKey% _) True)))
 
   (define-struct ColumnDefinition
     (col-name String)
