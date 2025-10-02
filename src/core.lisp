@@ -8,26 +8,37 @@
    (:ty #:coalton-library/types))
   (:export
    ;;; Library Public
-   SqlValue
-   SqlInt
-   SqlText
-   SqlBool
-   SqlNull
-   Value
-   Values
-   Row
+   #:SqlType
+   #:IntType
+   #:TextType
+   #:BoolType
 
-   DbError
-   QueryError
-   ResultParseError
-   DbResult
+   #:SqlValue
+   #:SqlInt
+   #:SqlText
+   #:SqlBool
+   #:SqlNull
+   #:Value
+   #:Values
+   #:Row
 
-   ParseSql
-   parse-sql
+   #:DbError
+   #:QueryError
+   #:ResultParseError
+   #:DbResult
 
-   SqlQuery
+   #:ParseSql
+   #:parse-sql
 
-   DatabaseAdapter
+   #:SqlQuery
+
+   #:PrimaryKey
+   #:Unique
+   #:Nullable
+
+   #:Schema
+
+   #:DatabaseAdapter
 
    ;;; Library Private
    #:next-placeholder
@@ -36,6 +47,11 @@
 
    #:wrap-raw-sql-value
    #:unwrap-sql-value
+
+   #:ColumnDefinition
+   #:TableProperty
+   #:CompositePrimaryKey%
+   #:SqlTable
    ))
 
 (in-package :coalton-db/core)
@@ -184,6 +200,51 @@ a type that can be passed directly to a DB implementation as a bound value."
   (define-type SqlQuery
     "A query that has been 'compiled' to a SQL query string and bound parameters."
     (SqlQuery String (List SqlValue))))
+
+;;;
+;;; Table/Schema Definitions
+;;;
+
+(coalton-toplevel
+
+  (repr :enum)
+  (derive Eq)
+  (define-type ColumnProperty
+    PrimaryKey
+    Unique)
+
+
+  (define-type GhostColumnProperty
+    "Keywords used in the syntax, but not inserted as column propertiese into the
+column definition."
+    Nullable
+    "SQL defaults to Nullable, but coalton-db defaults to Not-Nullable. To support
+that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
+`Nullable` 'ghost' property is used in the definition.")
+
+  (repr :enum)
+  (derive Eq)
+  (define-type SqlType
+    IntType
+    TextType
+    BoolType)
+
+  (define-struct ColumnDefinition
+    (col-name String)
+    (col-type SqlType)
+    (properties (List ColumnProperty))
+    (nullable? Boolean))
+
+  (define-type-alias SqlTable String)
+
+  (derive Eq)
+  (define-type TableProperty
+    (CompositePrimaryKey% (List SqlTable)))
+
+  (define-struct Schema
+    (tbl-name String)
+    (col-specs (List ColumnDefinition))
+    (tbl-props (List TableProperty))))
 
 ;;;
 ;;; Database Adapter

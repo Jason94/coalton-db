@@ -32,6 +32,17 @@
               ()
               result))
 
+(define-test test-create-simple-schema-if-not-exists ()
+  (let result =
+    (to-sql-test1 (CreateSchema simple-table (IfNotExists))))
+  (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS users ("
+                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " name TEXT NOT NULL,"
+                         " age INTEGER NOT NULL"
+                         ");")
+              ()
+              result))
+
 (coalton-toplevel
   (define custom-pkey-table
     (make-schema

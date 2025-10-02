@@ -10,7 +10,6 @@
    )
   (:export
    ;;; Library Public
-   #:Schema
    #:column
    #:make-schema
    #:CreateSchema
@@ -23,11 +22,6 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-struct Schema
-    (tbl-name String)
-    (col-specs (List ColumnDefinition))
-    (tbl-props (List TableProperty)))
-
   (declare contains-pkey? (Schema -> Boolean))
   (define (contains-pkey? s)
     (or
@@ -37,15 +31,15 @@
   (define default-pkey-col-def
      (ColumnDefinition "id" IntType (make-list PrimaryKey) False))
 
-  (declare CreateSchema (Schema -> Query))
-  (define (CreateSchema schema)
+  (declare CreateSchema% (Schema -> List CreateTableOption -> Query))
+  (define (CreateSchema% schema create-opts)
     (let col-specs =
       (if (contains-pkey? schema)
           (.col-specs schema)
           (Cons default-pkey-col-def (.col-specs schema))))
     (CreateTable%
      (.tbl-name schema)
-     (make-list)
+     create-opts
      col-specs
      (.tbl-props schema)))
   )
@@ -60,3 +54,6 @@
      ,@col-clauses)
     (make-list
      ,@tbl-prop-clauses)))
+
+(cl:defmacro CreateSchema (schema cl:&optional create-opts)
+  `(CreateSchema% ,schema (make-list ,@create-opts)))

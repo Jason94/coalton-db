@@ -15,12 +15,6 @@
    (:itr #:coalton-library/iterator))
   (:export
    ;;; Library Public
-
-   #:SqlType
-   #:IntType
-   #:TextType
-   #:BoolType
-
    #:Cols
 
    #:RowCondition
@@ -54,17 +48,14 @@
    #:IfNotExists
    #:CompositePrimaryKey
 
-   #:PrimaryKey
-   #:Unique
-   #:Nullable
-
    #:to-sql
+
    ;;; Library Private
-   #:ColumnDefinition
+
    #:col-clause-to-col-def-clause
    #:is-composite-pkey?
    #:CreateTable%
-   #:TableProperty
+   #:CreateTableOption
    ))
 
 (in-package :coalton-db/queries)
@@ -180,8 +171,6 @@
 
   (define-type-alias FromStatement String)
 
-  (define-type-alias SqlTable String)
-
   (define-type SelectTarget
     "Things that can be selected against."
     (Values% (List SqlValue))
@@ -228,45 +217,15 @@
   ;;; CREATE TABLE Syntax
   ;;;
 
-  (repr :enum)
-  (derive Eq)
-  (define-type SqlType
-    IntType
-    TextType
-    BoolType)
 
   (derive Eq)
   (define-type CreateTableOption
     IfNotExists)
 
-  (repr :enum)
-  (derive Eq)
-  (define-type ColumnProperty
-    PrimaryKey
-    Unique)
-
-  (define-type GhostColumnProperty
-    "Keywords used in the syntax, but not inserted as column propertiese into the
-column definition."
-    Nullable
-    "SQL defaults to Nullable, but coalton-db defaults to Not-Nullable. To support
-that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
-`Nullable` 'ghost' property is used in the definition.")
-
-  (derive Eq)
-  (define-type TableProperty
-    (CompositePrimaryKey% (List SqlTable)))
-
   (declare is-composite-pkey? (TableProperty -> Boolean))
   (define (is-composite-pkey? tbl-prop)
     (match tbl-prop
       ((CompositePrimaryKey% _) True)))
-
-  (define-struct ColumnDefinition
-    (col-name String)
-    (col-type SqlType)
-    (properties (List ColumnProperty))
-    (nullable? Boolean))
 
   ;;;
   ;;; Query Type
