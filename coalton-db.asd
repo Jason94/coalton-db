@@ -15,6 +15,7 @@
                 ((:file "utils")
                  (:file "core")
                  (:file "to-row")
+                 (:file "from-row")
                  (:file "queries")
                  (:file "schema")
                  (:file "persistable")
@@ -38,6 +39,7 @@
                 :components
                 ((:file "test-utils")
                  (:file "to-row")
+                 (:file "from-row")
                  (:file "queries")
                  (:file "queries-to-row")
                  (:file "schema")

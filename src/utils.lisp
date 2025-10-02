@@ -15,6 +15,7 @@
    #:force-string
    #:contains?
    #:contains-where?
+   #:liftAn
    ))
 (in-package :coalton-db/util)
 
@@ -59,3 +60,18 @@
 (cl:defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."
   `(fold <> "" (make-list ,@str-parts)))
+
+(cl:defun liftAn_ (f rest)
+  (cl:let ((len (cl:length rest)))
+    (cl:cond
+      ((cl:< len 2) (cl:error "liftAn requires two or more terms!"))
+      ((cl:eq len 2)
+       `(liftA2 ,f ,@rest))
+      (cl:t
+       (cl:let* ((flipped (cl:reverse rest))
+                 (elt (cl:car flipped))
+                 (rem (cl:reverse (cl:cdr flipped))))
+         `(<*> ,(liftAn_ f rem) ,elt))))))
+
+(cl:defmacro liftAn (f cl:&rest rest)
+  (liftAn_ f rest))
