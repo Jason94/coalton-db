@@ -60,6 +60,9 @@
 
    to-sql
    ;;; Library Private
+   #:ColumnDefinition
+   #:col-clause-to-col-def-clause
+   #:CreateTable%
    ))
 
 (in-package :coalton-db/queries)
@@ -223,14 +226,19 @@
   ;;; CREATE TABLE Syntax
   ;;;
 
+  (repr :enum)
+  (derive Eq)
   (define-type SqlType
     IntType
     TextType
     BoolType)
 
+  (derive Eq)
   (define-type CreateTableOption
     IfNotExists)
 
+  (repr :enum)
+  (derive Eq)
   (define-type ColumnProperty
     PrimaryKey
     Unique)

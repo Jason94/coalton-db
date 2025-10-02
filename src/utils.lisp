@@ -2,7 +2,8 @@
 (defpackage :coalton-db/util
   (:use
    #:coalton
-   #:coalton-prelude)
+   #:coalton-prelude
+   )
   (:local-nicknames
    (:l  #:coalton-library/list)
    (:opt #:coalton-library/optional)
@@ -11,7 +12,9 @@
    #:join-str
    #:build-str
    #:i#
-   #:force-string))
+   #:force-string
+   #:contains?
+   ))
 (in-package :coalton-db/util)
 
 (named-readtables:in-readtable coalton:coalton)
@@ -35,7 +38,13 @@
   (declare force-string (:a -> String))
   (define (force-string x)
     (lisp String (x)
-      (cl:format cl:nil "~a" x))))
+      (cl:format cl:nil "~a" x)))
+
+  (declare contains? (Eq :a => :a -> List :a -> Boolean))
+  (define (contains? elt lst)
+    (match (l:elemindex elt lst)
+      ((Some _) True)
+      ((None) False))))
 
 (cl:defmacro build-str (cl:&rest str-parts)
   "Concatenate all STR-PARTS."

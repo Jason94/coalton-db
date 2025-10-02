@@ -31,3 +31,22 @@
                          ");")
               ()
               result))
+
+(coalton-toplevel
+  (define custom-pkey-table
+    (make-schema
+     "users"
+     ((column "custom-id" IntType PrimaryKey)
+      (column "name" TextType)
+      (column "age" IntType)))))
+
+(define-test test-create-custom-pkey-schema ()
+  (let result =
+    (to-sql-test1 (CreateSchema custom-pkey-table)))
+  (is-sql-eql (build-str "CREATE TABLE users ("
+                         " custom-id INTEGER PRIMARY KEY NOT NULL,"
+                         " name TEXT NOT NULL,"
+                         " age INTEGER NOT NULL"
+                         ");")
+              ()
+              result))
