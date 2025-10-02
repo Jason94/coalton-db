@@ -16,49 +16,49 @@
   (:export
    ;;; Library Public
 
-   SqlType
-   IntType
-   TextType
-   BoolType
+   #:SqlType
+   #:IntType
+   #:TextType
+   #:BoolType
 
-   Cols
+   #:Cols
 
-   RowCondition
-   True_
-   False_
-   Eq_
-   Neq_
-   Gt_
-   GtEq_
-   Lt_
-   LtEq_
-   IsNull_
-   IsNotNull_
-   Not_
-   And_
-   Or_
+   #:RowCondition
+   #:True_
+   #:False_
+   #:Eq_
+   #:Neq_
+   #:Gt_
+   #:GtEq_
+   #:Lt_
+   #:LtEq_
+   #:IsNull_
+   #:IsNotNull_
+   #:Not_
+   #:And_
+   #:Or_
 
-   Where
+   #:Where
 
-   Query
-   Select
-   AllCols
-   From
-   Delete
-   Insert
-   IntoTable
-   Update
-   DropTable
-   IfExists
-   CreateTable
-   IfNotExists
+   #:Query
+   #:Select
+   #:AllCols
+   #:From
+   #:Delete
+   #:Insert
+   #:IntoTable
+   #:Update
+   #:DropTable
+   #:IfExists
+   #:CreateTable
+   #:IfNotExists
    #:CompositePrimaryKey
 
-   PrimaryKey
-   Unique
-   Nullable
+   #:PrimaryKey
+   #:Unique
+   #:Nullable
 
-   to-sql
+   #:to-sql
    ;;; Library Private
    #:ColumnDefinition
    #:col-clause-to-col-def-clause
