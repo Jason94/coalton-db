@@ -6,7 +6,10 @@
    #:coalton-db/util
    #:coalton-db/core)
   (:local-nicknames
+   (:c #:coalton-library/cell)
    )
+  (:import-from #:coalton-library/experimental/loops
+   #:dolist)
   (:export
    ;;; Library Public
 
@@ -15,6 +18,7 @@
 
    #:ParseSqlRow
    #:parse-row
+   #:parse-rows
    #:define-row-parser
    #:define-row-parser-from-val-parser
    #:sql-value-parser
@@ -118,6 +122,17 @@
         (Ok result))
        (_
         (Err (ResultParseError "Unexpected SQL values to parse."))))))
+
+  (declare parse-rows (ParseSqlRow :a => List Row -> DbResult (List :a)))
+  (define (parse-rows rows)
+    "Parse a list of rows. When the first parsing error is encountered,
+abort parsing the whole list."
+    (let results = (c:new Nil))
+    (for row in rows
+      (match (parse-row row)
+        ((Ok a) (c:push! results a))
+        ((Err e) (return (Err e)))))
+    (OK (reverse (c:read results))))
   )
 
 (cl:defmacro define-row-parser-from-val-parser (output-type cl:&optional quals)

@@ -23,6 +23,7 @@
    ;;; Library Private
    #:QueryRows
    #:ExecuteQuery
+   #:QueryVals
    ))
 (cl:in-package :coalton-db/db-m)
 

@@ -2,6 +2,8 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/util
         #:coalton-db/core
+        #:coalton-db/schema
+        #:coalton-db/to-row
         #:coalton-db/from-row
         #:coalton-db/queries
         #:coalton-db/db-m
@@ -18,7 +20,11 @@
 (coalton-fiasco-init #:coalton-db/tests/api-fp-fiasco)
 
 ;; NOTE: These tests are integration tests. In order to properly test the
-;; DB monad, we're going to connect to an in-memory SQLite database.
+;; api code, we're going to connect to an in-memory SQLite database.
+
+;;;
+;;; Test Sql Queries
+;;;
 
 (coalton-toplevel
   (declare simple-select (DB (DbResult String)))
@@ -69,3 +75,42 @@
   (let result = (run-db! cnxn (execute-query (DropTable "test" IfExists))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok Unit) result)))
+
+;;;
+;;; Test FRM
+;;;
+
+(coalton-toplevel
+  (derive Eq)
+  (define-struct SimpleUser
+    (name String)
+    (verified? Boolean))
+
+  (define simple-user-table
+    (make-schema
+     "users"
+     ((column "name" TextType PrimaryKey)
+      (column "verified" BoolType))))
+
+  (define-row-parser SimpleUser
+    sql-value-parser
+    sql-value-parser)
+
+  (define-instance (ToRow SimpleUser)
+    (define (to-row user)
+      (build-row user .name .verified?))))
+
+(define-test test-select-value ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user)))
+              (query-vals (Select AllCols
+                                  (From "users"))))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user))
+          result)))
