@@ -12,25 +12,25 @@
    (:ty #:coalton-library/types))
   (:export
    ;;; Library Public
-   #:query-rows!
-   #:query-rows!#
+   #:query-sql-rows!
+   #:query-sql-rows!#
    #:execute-query!
    #:execute-query!#
-   #:query-vals!
+   #:query-rows!
    ))
 (cl:in-package :coalton-db/api-imp)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (declare query-rows! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult (List Row)))
-  (define (query-rows! cnxn qry)
+  (declare query-sql-rows! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult (List Row)))
+  (define (query-sql-rows! cnxn qry)
     (run-query! cnxn
                 (unwrap-query-container (ty:proxy-of cnxn) (to-query qry))))
 
-  (declare query-rows!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> List Row))
-  (define (query-rows!# cnxn qry)
-    (r:ok-or-error (query-rows! cnxn qry)))
+  (declare query-sql-rows!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> List Row))
+  (define (query-sql-rows!# cnxn qry)
+    (r:ok-or-error (query-sql-rows! cnxn qry)))
 
   (declare execute-query! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult Unit))
   (define (execute-query! cnxn qry)
@@ -41,10 +41,10 @@
   (define (execute-query!# cnxn qry)
     (r:ok-or-error (execute-query! cnxn qry)))
 
-  (declare query-vals! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
+  (declare query-rows! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
                         :d -> :q -> DbResult (List :p)))
-  (define (query-vals! cnxn qry)
-    (>>= (query-rows! cnxn qry)
+  (define (query-rows! cnxn qry)
+    (>>= (query-sql-rows! cnxn qry)
          (traverse parse-row)))
 
   )

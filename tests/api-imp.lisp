@@ -19,6 +19,9 @@
 (fiasco:define-test-package #:coalton-db/tests/api-imp-fiasco)
 (coalton-fiasco-init #:coalton-db/tests/api-imp-fiasco)
 
+;; NOTE: These tests are integration tests. In order to properly test the
+;; api code, we're going to connect to an in-memory SQLite database.
+
 ;;;
 ;;; Test Sql Queries
 ;;;
@@ -26,7 +29,7 @@
 (define-test test-run-one-query ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let result =
-    (query-rows! cnxn "SELECT 'Hello';"))
+    (query-sql-rows! cnxn "SELECT 'Hello';"))
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (>>= result
                          (fn (rows)
@@ -36,7 +39,7 @@
 (define-test test-run-one-query-unsafe ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let result =
-    (query-rows!# cnxn "SELECT 'Hello';"))
+    (query-sql-rows!# cnxn "SELECT 'Hello';"))
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (parse-val (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
@@ -44,7 +47,7 @@
 (define-test test-run-one-query-hardcoded-placeholder ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let qry = (SqlQuery "SELECT ?;" (Values "Hello")))
-  (let result = (query-rows!# cnxn qry))
+  (let result = (query-sql-rows!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (parse-val (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
@@ -52,7 +55,7 @@
 (define-test test-run-one-query-placeholders ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let qry = (Select (Values "Hello")))
-  (let result = (query-rows!# cnxn qry))
+  (let result = (query-sql-rows!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (parse-val (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
@@ -101,7 +104,7 @@
   (execute-query!# cnxn (CreateSchema simple-user-table))
   (execute-query!# cnxn (Insert (IntoTable "users")
                                 (to-row user)))
-  (let result = (query-vals! cnxn (Select AllCols
+  (let result = (query-rows! cnxn (Select AllCols
                                           (From "users"))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok (make-list user))

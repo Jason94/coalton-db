@@ -30,7 +30,7 @@
   (declare simple-select (DB (DbResult String)))
   (define simple-select
     (rt:do-resultT
-      (result <- (query-rows "SELECT 'Hello';"))
+      (result <- (query-sql-rows "SELECT 'Hello';"))
       (let val = (i# 0 (i# 0 result)))
       (pure (parse-val val)))))
 
@@ -45,7 +45,7 @@
   (define (select-hardcoded-placeholder val)
     (rt:do-resultT
       (let qry = (SqlQuery "SELECT ?;" (make-list val)))
-      (result <- (query-rows qry))
+      (result <- (query-sql-rows qry))
       (let val = (i# 0 (i# 0 result)))
       (pure (parse-val val)))))
 
@@ -60,7 +60,7 @@
   (define (select-value val)
     (rt:do-resultT
       (let qry = (Select (Values val)))
-      (result <- (query-rows qry))
+      (result <- (query-sql-rows qry))
       (let val = (i# 0 (i# 0 result)))
       (pure (parse-val val)))))
 
@@ -100,7 +100,7 @@
     (define (to-row user)
       (build-row user .name .verified?))))
 
-(define-test test-select-value ()
+(define-test test-select-rows ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user = (SimpleUser "Steve" False))
   (let result =
@@ -109,7 +109,7 @@
               (execute-query (CreateSchema simple-user-table))
               (execute-query (Insert (IntoTable "users")
                                      (to-row user)))
-              (query-vals (Select AllCols
+              (query-rows (Select AllCols
                                   (From "users"))))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok (make-list user))
