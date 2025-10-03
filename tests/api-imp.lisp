@@ -112,17 +112,19 @@
 
   (define-instance (ToRow SimpleUser)
     (define (to-row user)
-      (build-row user .name .verified?))))
+      (build-row user .name .verified?)))
+
+  (define (setup-users cnxn users)
+    (execute-query!# cnxn (CreateSchema simple-user-table))
+    (for user in users
+      (execute-query!# cnxn (Insert (IntoTable "users")
+                                    (to-row user))))))
 
 (define-test test-query-rows ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user1 = (SimpleUser "Steve" False))
   (let user2 = (SimpleUser "Diane" True))
-  (execute-query!# cnxn (CreateSchema simple-user-table))
-  (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user1)))
-  (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user2)))
+  (setup-users cnxn (make-list user1 user2))
   (let result = (query-rows! cnxn (Select AllCols
                                           (From "users"))))
   (sq:disconnect-sqlite! cnxn)
@@ -133,13 +135,9 @@
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user1 = (SimpleUser "Steve" False))
   (let user2 = (SimpleUser "Diane" True))
-  (execute-query!# cnxn (CreateSchema simple-user-table))
-  (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user1)))
-  (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user2)))
+  (setup-users cnxn (make-list user1 user2))
   (let result = (query-rows!# cnxn (Select AllCols
-                                          (From "users"))))
+                                           (From "users"))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (make-list user1 user2)
           result)))
@@ -147,9 +145,7 @@
 (define-test test-query-row ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user1 = (SimpleUser "Steve" False))
-  (execute-query!# cnxn (CreateSchema simple-user-table))
-  (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user1)))
+  (setup-users cnxn (make-list user1))
   (let result = (query-row! cnxn (Select AllCols
                                            (From "users"))))
   (sq:disconnect-sqlite! cnxn)
@@ -159,11 +155,9 @@
 (define-test test-query-row-unsafe ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user1 = (SimpleUser "Steve" False))
-  (execute-query!# cnxn (CreateSchema simple-user-table))
-  (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user1)))
+  (setup-users cnxn (make-list user1))
   (let result = (query-row!# cnxn (Select AllCols
-                                         (From "users"))))
+                                          (From "users"))))
   (sq:disconnect-sqlite! cnxn)
   (is (== user1
           result)))
