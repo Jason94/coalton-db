@@ -24,25 +24,29 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (declare contains-pkey? (Schema -> Boolean))
-  (define (contains-pkey? s)
+  (declare contains-pkey? (List ColumnDefinition -> List TableProperty -> Boolean))
+  (define (contains-pkey? col-specs tbl-specs)
     (or
-     (contains? PrimaryKey (>>= (.col-specs s) .properties))
-     (contains-where? is-composite-pkey? (.tbl-props s))))
+     (contains? PrimaryKey (>>= col-specs .properties))
+     (contains-where? is-composite-pkey? tbl-specs)))
 
   (define default-pkey-col-def
      (ColumnDefinition "id" IntType (make-list PrimaryKey) False))
 
+  (declare generate-cols (List ColumnDefinition -> List TableProperty -> List ColumnDefinition))
+  (define (generate-cols col-specs tbl-specs)
+    "Based on the user-specified column and table specs, generate the full list of columns
+for the SQL table."
+    (if (contains-pkey? col-specs tbl-specs)
+        col-specs
+        (Cons default-pkey-col-def col-specs)))
+
   (declare CreateSchema% (Schema -> List CreateTableOption -> Query))
   (define (CreateSchema% schema create-opts)
-    (let col-specs =
-      (if (contains-pkey? schema)
-          (.col-specs schema)
-          (Cons default-pkey-col-def (.col-specs schema))))
     (CreateTable%
      (.tbl-name schema)
      create-opts
-     col-specs
+     (generate-cols (.col-specs schema) (.tbl-props schema))
      (.tbl-props schema)))
   )
 
@@ -50,12 +54,16 @@
   (col-clause-to-col-def-clause col-name col-type properties))
 
 (cl:defmacro make-schema (tbl-name col-clauses cl:&optional tbl-prop-clauses)
-  `(Schema
-    ,tbl-name
-    (make-list
-     ,@col-clauses)
-    (make-list
-     ,@tbl-prop-clauses)))
+  (cl:let ((user-col-specs (cl:gensym "user-col-specs"))
+           (user-tbl-props (cl:gensym "user-tbl-props"))
+           (col-specs (cl:gensym "col-specs")))
+    `(let ((,user-col-specs (make-list ,@col-clauses))
+           (,user-tbl-props (make-list ,@tbl-prop-clauses))
+           (,col-specs (generate-cols ,user-col-specs ,user-tbl-props)))
+       (Schema
+        ,tbl-name
+        ,col-specs
+        ,user-tbl-props))))
 
 (cl:defmacro CreateSchema (schema cl:&optional create-opts)
   `(CreateSchema% ,schema (make-list ,@create-opts)))

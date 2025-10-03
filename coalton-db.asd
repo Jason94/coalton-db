@@ -7,7 +7,9 @@
   :license "MIT"
   :depends-on ("alexandria"
                "sqlite"
-               "coalton")
+               "coalton"
+               ;; Just requiring to wrap DBM monad transf. instances
+               "coalton-simple-io")
   :components ((:module "src"
                 :serial t
                 :components
