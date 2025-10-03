@@ -21,6 +21,7 @@
    #:query-rows
    #:query-row
    #:select-objs
+   #:select-obj
    #:execute-query
    ))
 (cl:in-package :coalton-db/api-fp)
@@ -28,6 +29,10 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  ;;;
+  ;;; Low Level Query Ops (Return SQL Values)
+  ;;;
+
   (declare query-sql-rows ((Monad :m) (Queryable :q) => :q -> DBM :m (DbResult (List Row))))
   (define (query-sql-rows qry)
     (f:liftF (QueryRows (to-query qry) id)))
@@ -63,6 +68,10 @@
   (define (execute-query qry)
     (f:liftF (ExecuteQuery (to-query qry) id)))
 
+  ;;;
+  ;;; FRM Query Ops
+  ;;;
+
   (declare select-objs_ ((Monad :m) (Persistable :p) => Optional QueryOption -> DBM :m (DbResult (List :p))))
   (define (select-objs_ opt?)
     (let prx-rst = ty:Proxy)
@@ -76,7 +85,26 @@
          (Select AllCols (From tbl-name) opt))))
     (ty:as-proxy-of
      (query-rows qry)
-     prx-rst)))
+     prx-rst))
+
+  (declare select-obj_ ((Monad :m) (Persistable :p) => Optional QueryOption -> DBM :m (DbResult :p)))
+  (define (select-obj_ opt?)
+    (let prx-rst = ty:Proxy)
+    (let prx-obj = (ty:proxy-inner (ty:proxy-inner prx-rst)))
+    (let tbl-name = (.tbl-name (schema-for prx-obj)))
+    (let qry =
+      (match opt?
+        ((None)
+         (Select AllCols (From tbl-name)))
+        ((Some opt)
+         (Select AllCols (From tbl-name) opt))))
+    (ty:as-proxy-of
+     (query-row qry)
+     prx-rst))
+  )
 
 (cl:defmacro select-objs (cl:&optional where?)
   `(select-objs_ ,(optional-clause where?)))
+
+(cl:defmacro select-obj (cl:&optional where?)
+  `(select-obj_ ,(optional-clause where?)))

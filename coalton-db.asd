@@ -1,5 +1,5 @@
 (defsystem "coalton-db"
-  :long-name "coalton-sql-database"
+  :long-name "coalton-sql-database-frm"
   :version "0.1"
   :author "Jason Walker"
   :maintainer "Jason Walker"
@@ -7,8 +7,7 @@
   :license "MIT"
   :depends-on ("alexandria"
                "sqlite"
-               "coalton"
-               "coalton-simple-io")
+               "coalton")
   :components ((:module "src"
                 :serial t
                 :components

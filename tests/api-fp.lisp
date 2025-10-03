@@ -179,3 +179,34 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok (make-list user))
           result)))
+
+(define-test test-select-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user)))
+              (select-obj))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok user)
+          result)))
+
+(define-test test-select-obj-where ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user)))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user2)))
+              (select-obj (Where (Eq_ "name" (Value "Steve")))))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok user)
+          result)))

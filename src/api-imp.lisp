@@ -26,6 +26,8 @@
    #:query-row!#
    #:select-objs!
    #:select-objs!#
+   #:select-obj!
+   #:select-obj!#
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -105,6 +107,25 @@
   (declare select-objs!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> List :p))
   (define (select-objs!#_ cnxn opt)
     (r:ok-or-error (select-objs!_ cnxn opt)))
+
+  (declare select-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult :p))
+  (define (select-obj!_ cnxn opt?)
+    (let prx-rst = ty:Proxy)
+    (let prx-obj = (ty:proxy-inner prx-rst))
+    (let tbl-name = (.tbl-name (schema-for prx-obj)))
+    (let qry =
+      (match opt?
+        ((None)
+         (Select AllCols (From tbl-name)))
+        ((Some opt)
+         (Select AllCols (From tbl-name) opt))))
+    (ty:as-proxy-of
+     (query-row! cnxn  qry)
+     prx-rst))
+
+  (declare select-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> :p))
+  (define (select-obj!#_ cnxn opt)
+    (r:ok-or-error (select-obj!_ cnxn opt)))
   )
 
 (cl:defmacro select-objs! (cnxn cl:&optional where?)
@@ -112,3 +133,9 @@
 
 (cl:defmacro select-objs!# (cnxn cl:&optional where?)
   `(select-objs!#_ ,cnxn ,(optional-clause where?)))
+
+(cl:defmacro select-obj! (cnxn cl:&optional where?)
+  `(select-obj!_ ,cnxn ,(optional-clause where?)))
+
+(cl:defmacro select-obj!# (cnxn cl:&optional where?)
+  `(select-obj!#_ ,cnxn ,(optional-clause where?)))
