@@ -20,9 +20,10 @@
    #:query-sql-row
    #:query-rows
    #:query-row
+   #:execute-query
    #:select-objs
    #:select-obj
-   #:execute-query
+   #:delete-obj
    ))
 (cl:in-package :coalton-db/api-fp)
 
@@ -101,6 +102,12 @@
     (ty:as-proxy-of
      (query-row qry)
      prx-rst))
+
+  (declare delete-obj ((Monad :m) (Persistable :p) => :p -> DBM :m (DbResult Unit)))
+  (define (delete-obj obj)
+    (f:liftF (ExecuteQuery (to-query (Delete (From (tbl-name-for-obj obj))
+                                             (Where (pkey-cnd-for obj))))
+                           id)))
   )
 
 (cl:defmacro select-objs (cl:&optional where?)

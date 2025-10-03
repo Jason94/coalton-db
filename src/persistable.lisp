@@ -6,9 +6,11 @@
    #:coalton-db/util
    #:coalton-db/core
    #:coalton-db/from-row
+   #:coalton-db/queries
    #:coalton-db/schema
    )
   (:local-nicknames
+   (:l #:coalton-library/list)
    (:op #:coalton-library/optional)
    (:ty #:coalton-library/types)
    )
@@ -22,6 +24,7 @@
    #:pkey-col-val-pairs
    #:schema-for-obj
    #:tbl-name-for-obj
+   #:pkey-cnd-for
    ))
 
 (in-package :coalton-db/persistable)
@@ -55,4 +58,21 @@ the column with the given name, if any."
                     (traverse (prop-for-col obj)
                               pkey-col-names)))
     (Tuple pkey-col-names pkey-vals))
+
+  (declare pkey-cnd-for (Persistable :p => :p -> RowCondition))
+  (define (pkey-cnd-for obj)
+    (let (Tuple pkey-names pkey-vals) = (pkey-col-val-pairs obj))
+    (let zipped-pkeys = (l:zip pkey-names pkey-vals))
+    (let initial-condition =
+      (op:from-some "Object is missing primary key values."
+                    (map (fn ((Tuple col val))
+                           (Eq_ col val))
+                         (head zipped-pkeys))))
+    (fold
+     (fn (existing-cond (Tuple col val))
+       (And_ existing-cond (Eq_ col val)))
+     initial-condition
+     (match (tail zipped-pkeys)
+       ((Some l) l)
+       ((None) Nil))))
   )

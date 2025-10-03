@@ -215,3 +215,20 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok user)
           result)))
+
+(define-test test-delete-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user)))
+              (delete-obj user)
+              (select-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (the (DbResult (List SimpleUser))
+               (Ok Nil)))))
+

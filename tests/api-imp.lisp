@@ -260,3 +260,13 @@
   (is (r:ok? delete-result))
   (is (== users
           (Ok Nil))))
+
+(define-test test-delete-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (delete-obj!# cnxn user1)
+  (let users = (the (DbResult (List SimpleUser))
+                    (select-objs! cnxn)))
+  (is (== users
+          (Ok Nil))))
