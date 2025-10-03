@@ -20,7 +20,7 @@
    #:query-sql-row
    #:query-rows
    #:query-row
-   #:query-objs
+   #:select-objs
    #:execute-query
    ))
 (cl:in-package :coalton-db/api-fp)
@@ -63,8 +63,8 @@
   (define (execute-query qry)
     (f:liftF (ExecuteQuery (to-query qry) id)))
 
-  (declare query-objs_ ((Monad :m) (Persistable :p) => Optional QueryOption -> DBM :m (DbResult (List :p))))
-  (define (query-objs_ opt?)
+  (declare select-objs_ ((Monad :m) (Persistable :p) => Optional QueryOption -> DBM :m (DbResult (List :p))))
+  (define (select-objs_ opt?)
     (let prx-rst = ty:Proxy)
     (let prx-obj = (ty:proxy-inner (ty:proxy-inner (ty:proxy-inner prx-rst))))
     (let tbl-name = (.tbl-name (schema-for prx-obj)))
@@ -78,5 +78,5 @@
      (query-rows qry)
      prx-rst)))
 
-(cl:defmacro query-objs (cl:&optional where?)
-  `(query-objs_ ,(optional-clause where?)))
+(cl:defmacro select-objs (cl:&optional where?)
+  `(select-objs_ ,(optional-clause where?)))

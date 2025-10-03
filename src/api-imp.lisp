@@ -24,8 +24,8 @@
    #:query-rows!#
    #:query-row!
    #:query-row!#
-   #:query-objs!
-   #:query-objs!#
+   #:select-objs!
+   #:select-objs!#
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -87,8 +87,8 @@
   (define (query-row!# cnxn qry)
     (r:ok-or-error (query-row! cnxn qry)))
 
-  (declare query-objs!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult (List :p)))
-  (define (query-objs!_ cnxn opt?)
+  (declare select-objs!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult (List :p)))
+  (define (select-objs!_ cnxn opt?)
     (let prx-rst = ty:Proxy)
     (let prx-obj = (ty:proxy-inner (ty:proxy-inner prx-rst)))
     (let tbl-name = (.tbl-name (schema-for prx-obj)))
@@ -102,13 +102,13 @@
      (query-rows! cnxn  qry)
      prx-rst))
 
-  (declare query-objs!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> List :p))
-  (define (query-objs!#_ cnxn opt)
-    (r:ok-or-error (query-objs!_ cnxn opt)))
+  (declare select-objs!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> List :p))
+  (define (select-objs!#_ cnxn opt)
+    (r:ok-or-error (select-objs!_ cnxn opt)))
   )
 
-(cl:defmacro query-objs! (cnxn cl:&optional where?)
-  `(query-objs!_ ,cnxn ,(optional-clause where?)))
+(cl:defmacro select-objs! (cnxn cl:&optional where?)
+  `(select-objs!_ ,cnxn ,(optional-clause where?)))
 
-(cl:defmacro query-objs!# (cnxn cl:&optional where?)
-  `(query-objs!#_ ,cnxn ,(optional-clause where?)))
+(cl:defmacro select-objs!# (cnxn cl:&optional where?)
+  `(select-objs!#_ ,cnxn ,(optional-clause where?)))
