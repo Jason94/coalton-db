@@ -10,12 +10,13 @@
   (:export
    ;;; Library Public
 
-   #:ParseSql
-   #:parse-sql
-
    #:ParseSqlValue
+   #:parse-val
+
+   #:ParseSqlRow
    #:parse-row
    #:define-row-parser
+   #:define-row-parser-from-val-parser
    #:sql-value-parser
 
    ;;; Library Private
@@ -30,45 +31,42 @@
 ;;;
 
 (coalton-toplevel
-  (define-class (ParseSql :a)
-    (parse-sql (SqlValue -> DbResult :a)))
+  (define-class (ParseSqlValue :a)
+    (parse-val (SqlValue -> DbResult :a)))
 
-  (define-instance (ParseSql Integer)
-    (define (parse-sql val)
+  (declare wrong-type-err (SqlValue -> String -> DbResult :a))
+  (define (wrong-type-err val expected-type)
+    (Err (ResultParseError
+          (build-str "Could not convert" (force-string val) " to " expected-type "."))))
+
+  (define-instance (ParseSqlValue Integer)
+    (define (parse-val val)
       (match val
         ((SqlInt i) (Ok i))
-        (_ (Err (ResultParseError
-                 (<> (<> "Could not convert " (force-string val))
-                     " to an integer.")))))))
+        (_ (wrong-type-err val "Integer")))))
 
-  (define-instance (ParseSql String)
-    (define (parse-sql val)
+  (define-instance (ParseSqlValue String)
+    (define (parse-val val)
       (match val
         ((SqlText i) (Ok i))
-        (_ (Err (ResultParseError
-                 (<> (<> "Could not convert " (force-string val))
-                     " to a string.")))))))
+        (_ (wrong-type-err val "String")))))
 
-  (define-instance (ParseSql Boolean)
-    (define (parse-sql val)
+  (define-instance (ParseSqlValue Boolean)
+    (define (parse-val val)
       (match val
         ((SqlBool b) (Ok b))
         ((SqlText s)
          (cond
            ((== s "FALSE") (Ok False))
            ((== s "TRUE") (Ok True))
-           (True (Err (ResultParseError
-                       (<> (<> "Could not convert " (force-string val))
-                           " to a boolean."))))))
-        (_ (Err (ResultParseError
-                 (<> (<> "Could not convert " (force-string val))
-                     " to a boolean.")))))))
+           (True (wrong-type-err val "Boolean"))))
+        (_ (wrong-type-err val "Boolean")))))
 
-  (define-instance (ParseSql :a => ParseSql (Optional :a))
-    (define (parse-sql val)
+  (define-instance (ParseSqlValue :a => ParseSqlValue (Optional :a))
+    (define (parse-val val)
       (match val
         ((SqlNull) (Ok None))
-        (_ (map Some (parse-sql val)))))))
+        (_ (map Some (parse-val val)))))))
 
 ;;;
 ;;; Parse Rows
@@ -108,10 +106,10 @@
                      ((Tuple b rest2) <- (pb rest1))
                      (pure (Tuple (a->b->c a b) rest2)))))))
 
-  (define-class (ParseSqlValue :p)
+  (define-class (ParseSqlRow :p)
     (sql-value-parser (RowParser :p)))
 
-  (declare parse-row (ParseSqlValue :a => Row -> DbResult :a))
+  (declare parse-row (ParseSqlRow :a => Row -> DbResult :a))
   (define (parse-row input)
     (do
      ((Tuple result rest) <- (run-row-parser sql-value-parser input))
@@ -122,62 +120,32 @@
         (Err (ResultParseError "Unexpected SQL values to parse."))))))
   )
 
-(cl:defmacro define-simple-parser (output-type expected-sqlvalue)
-  `(define-instance (ParseSqlValue ,output-type)
-     (define sql-value-parser
-       (RowParser (fn (row)
-                    (match row
-                      ((Nil)
-                       (Err (ResultParseError "Ran out of SQL values to parse.")))
-                      ((Cons (,expected-sqlvalue x) rest)
-                       (Ok (Tuple x rest)))
-                      ((Cons val _)
-                       (Err (ResultParseError (build-str "Expected "
-                                                         ,(cl:string expected-sqlvalue)
-                                                         " received: "
-                                                         (force-string val)))))))))))
+(cl:defmacro define-row-parser-from-val-parser (output-type cl:&optional quals)
+  (cl:let ((quals-clause (cl:when quals
+                                `(,@quals =>))))
+    `(define-instance (,@quals-clause ParseSqlRow ,output-type)
+       (define sql-value-parser
+         (RowParser (fn (row)
+                      (match row
+                        ((Nil)
+                         (Err (ResultParseError "Ran out of SQL values to parse.")))
+                        ((Cons x rest)
+                         (do
+                          (val <- (parse-val x))
+                          (Ok (Tuple val rest)))))))))))
 
 (cl:defmacro define-row-parser (constructor cl:&rest sub-parsers)
-  `(define-instance (ParseSqlValue ,constructor)
+  `(define-instance (ParseSqlRow ,constructor)
      (define sql-value-parser
        (liftAn ,constructor ,@sub-parsers))))
 
 (coalton-toplevel
-  (define-simple-parser Integer SqlInt)
-  (define-simple-parser String SqlText)
+  (define-row-parser-from-val-parser Integer)
+  (define-row-parser-from-val-parser String)
+  (define-row-parser-from-val-parser Boolean)
+  (define-row-parser-from-val-parser (Optional :p) (ParseSqlValue :p))
 
-  (define-instance (ParseSqlValue Boolean)
-    (define sql-value-parser
-      (RowParser (fn (row)
-                   (match row
-                     ((Nil)
-                      (Err (ResultParseError "Ran out of SQL values to parse.")))
-                     ((Cons (SqlBool b) rest)
-                      (Ok (Tuple b rest)))
-                     ((Cons (SqlText "TRUE") rest)
-                      (Ok (Tuple True rest)))
-                     ((Cons (SqlText "FALSE") rest)
-                      (Ok (Tuple False rest)))
-                     ((Cons val _)
-                      (Err (ResultParseError (build-str "Expected "
-                                                        "SqlBool"
-                                                        " received: "
-                                                        (force-string val))))))))))
-
-  (define-instance (ParseSqlValue :p => ParseSqlValue (Optional :p))
-    (define sql-value-parser
-      (RowParser (fn (row)
-                   (match row
-                     ((Nil)
-                      (Err (ResultParseError "Ran out of SQL values to parse.")))
-                     ((Cons (SqlNull) rest)
-                      (Ok (Tuple None rest)))
-                      (_
-                       (do
-                        ((Tuple val rest) <- (run-row-parser sql-value-parser row))
-                        (pure (Tuple (Some val) rest)))))))))
-
-  (define-instance ((ParseSqlValue :a) (ParseSqlValue :b) => ParseSqlValue (Tuple :a :b))
+  (define-instance ((ParseSqlRow :a) (ParseSqlRow :b) => ParseSqlRow (Tuple :a :b))
     (define sql-value-parser
       (RowParser (fn (row)
                    (match row

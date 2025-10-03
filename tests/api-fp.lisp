@@ -26,7 +26,7 @@
     (rt:do-resultT
       (result <- (query-rows "SELECT 'Hello';"))
       (let val = (i# 0 (i# 0 result)))
-      (pure (parse-sql val)))))
+      (pure (parse-val val)))))
 
 (define-test test-run-one-query ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
@@ -35,13 +35,13 @@
   (is (== (Ok "Hello") result)))
 
 (coalton-toplevel
-  (declare select-hardcoded-placeholder (ParseSql :a => SqlValue -> DB (DbResult :a)))
+  (declare select-hardcoded-placeholder (ParseSqlValue :a => SqlValue -> DB (DbResult :a)))
   (define (select-hardcoded-placeholder val)
     (rt:do-resultT
       (let qry = (SqlQuery "SELECT ?;" (make-list val)))
       (result <- (query-rows qry))
       (let val = (i# 0 (i# 0 result)))
-      (pure (parse-sql val)))))
+      (pure (parse-val val)))))
 
 (define-test test-run-one-query-hardcoded-placeholder ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
@@ -50,13 +50,13 @@
   (is (== (Ok False) result)))
 
 (coalton-toplevel
-  (declare select-value (ParseSql :a => SqlValue -> Db (DbResult :a)))
+  (declare select-value (ParseSqlValue :a => SqlValue -> Db (DbResult :a)))
   (define (select-value val)
     (rt:do-resultT
       (let qry = (Select (Values val)))
       (result <- (query-rows qry))
       (let val = (i# 0 (i# 0 result)))
-      (pure (parse-sql val)))))
+      (pure (parse-val val)))))
 
 (define-test test-run-one-query-placeholders ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))

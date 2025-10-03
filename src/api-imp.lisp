@@ -41,7 +41,7 @@
   (define (execute-query!# cnxn qry)
     (r:ok-or-error (execute-query! cnxn qry)))
 
-  (declare query-vals! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlValue :p) =>
+  (declare query-vals! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
                         :d -> :q -> DbResult (List :p)))
   (define (query-vals! cnxn qry)
     (>>= (query-rows! cnxn qry)

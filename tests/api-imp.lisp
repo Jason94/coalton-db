@@ -30,7 +30,7 @@
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (>>= result
                          (fn (rows)
-                           (parse-sql (i# 0 (i# 0 rows))))))
+                           (parse-val (i# 0 (i# 0 rows))))))
   (is (== (Ok "Hello") result-val)))
 
 (define-test test-run-one-query-unsafe ()
@@ -38,7 +38,7 @@
   (let result =
     (query-rows!# cnxn "SELECT 'Hello';"))
   (sq:disconnect-sqlite! cnxn)
-  (let result-val = (parse-sql (i# 0 (i# 0 result))))
+  (let result-val = (parse-val (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
 
 (define-test test-run-one-query-hardcoded-placeholder ()
@@ -46,7 +46,7 @@
   (let qry = (SqlQuery "SELECT ?;" (Values "Hello")))
   (let result = (query-rows!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
-  (let result-val = (parse-sql (i# 0 (i# 0 result))))
+  (let result-val = (parse-val (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
 
 (define-test test-run-one-query-placeholders ()
@@ -54,7 +54,7 @@
   (let qry = (Select (Values "Hello")))
   (let result = (query-rows!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
-  (let result-val = (parse-sql (i# 0 (i# 0 result))))
+  (let result-val = (parse-val (i# 0 (i# 0 result))))
   (is (== (Ok "Hello") result-val)))
 
 (define-test test-execute-query ()
