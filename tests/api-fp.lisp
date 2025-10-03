@@ -244,3 +244,17 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== result
           (Ok user))))
+
+(define-test test-insert-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (insert-objs (make-list user user2))
+              (select-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (Ok (make-list user user2)))))

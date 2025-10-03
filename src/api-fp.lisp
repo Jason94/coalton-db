@@ -25,6 +25,7 @@
    #:select-obj
    #:delete-obj
    #:insert-obj
+   #:insert-objs
    ))
 (cl:in-package :coalton-db/api-fp)
 
@@ -112,6 +113,13 @@
   (declare insert-obj ((Monad :m) (Persistable :p) => :p -> DBM :m (DbResult Unit)))
   (define (insert-obj obj)
     (execute-query (insert-obj-query obj)))
+
+  (declare insert-objs ((Monad :m) (Persistable :p) => List :p -> DBM :m (DbResult Unit)))
+  (define (insert-objs objs)
+    (match (insert-objs-query objs)
+      ((None) (pure (Ok Unit)))
+      ((Some qry)
+       (execute-query qry))))
   )
 
 (cl:defmacro select-objs (cl:&optional where?)

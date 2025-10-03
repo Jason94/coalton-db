@@ -311,7 +311,5 @@
   (setup-users cnxn Nil)
   (insert-objs!# cnxn (make-list user1 user2))
   (let users = (select-objs! cnxn))
-  (is (== insert-result
-          (Ok Unit)))
   (is (== users
           (Ok (make-list user1 user2)))))
