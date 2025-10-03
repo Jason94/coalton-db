@@ -11,6 +11,8 @@
    #:coalton-db/api-helpers)
   (:local-nicknames
    (:r #:coalton-library/result)
+   (:l #:coalton-library/list)
+   (:op #:coalton-library/optional)
    (:ty #:coalton-library/types))
   (:export
    ;;; Library Public
@@ -28,6 +30,7 @@
    #:select-objs!#
    #:select-obj!
    #:select-obj!#
+   #:delete-obj!
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -126,6 +129,27 @@
   (declare select-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> :p))
   (define (select-obj!#_ cnxn opt)
     (r:ok-or-error (select-obj!_ cnxn opt)))
+
+  (declare delete-obj! ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> DbResult Unit))
+  (define (delete-obj! cnxn obj)
+    (let (Tuple pkey-names pkey-vals) = (pkey-col-val-pairs obj))
+    (let zipped-pkeys = (l:zip pkey-names pkey-vals))
+    (let initial-condition =
+      (op:from-some "Object is missing primary key values."
+                    (map (fn ((Tuple col val))
+                           (Eq_ col val))
+                         (head zipped-pkeys))))
+    (let cnd =
+      (fold
+       (fn (existing-cond (Tuple col val))
+         (And_ existing-cond (Eq_ col val)))
+       initial-condition
+       (match (tail zipped-pkeys)
+         ((Some l) l)
+         ((None) Nil))))
+    (let qry = (Delete (From (tbl-name-for-obj obj))
+                       (Where cnd)))
+    (execute-query! cnxn qry))
   )
 
 (cl:defmacro select-objs! (cnxn cl:&optional where?)

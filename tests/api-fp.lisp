@@ -111,7 +111,12 @@
       (build-row user .name .verified?)))
 
   (define-instance (Persistable SimpleUser)
-    (define schema-for (const simple-user-table))))
+    (define schema-for (const simple-user-table))
+    (define (prop-for-col user col-name)
+      (match col-name
+        ("name" (Some (SqlText (.name user))))
+        ("verified" (Some (SqlBool (.verified? user))))
+        (_ None)))))
 
 (define-test test-select-rows ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))

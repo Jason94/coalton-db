@@ -10,6 +10,7 @@
         #:coalton-db/db-m
         #:coalton-db/api-imp)
   (:local-nicknames
+   (:r #:coalton-library/result)
    (:rt #:coalton-library/monad/resultt)
    (:sq #:coalton-db/sqlite)
    (:db-c #:coalton-db/core)))
@@ -116,7 +117,12 @@
       (build-row user .name .verified?)))
 
   (define-instance (Persistable SimpleUser)
-    (define schema-for (const simple-user-table)))
+    (define schema-for (const simple-user-table))
+    (define (prop-for-col user col-name)
+      (match col-name
+        ("name" (Some (SqlText (.name user))))
+        ("verified" (Some (SqlBool (.verified? user))))
+        (_ None))))
 
   (define (setup-users cnxn users)
     (execute-query!# cnxn (CreateSchema simple-user-table))
@@ -243,3 +249,14 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== user1
           result)))
+
+(define-test test-delete-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (let delete-result = (delete-obj! cnxn user1))
+  (let users = (the (DbResult (List SimpleUser))
+                    (select-objs! cnxn)))
+  (is (r:ok? delete-result))
+  (is (== users
+          (Ok Nil))))

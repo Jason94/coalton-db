@@ -17,6 +17,7 @@
    #:DropSchema
 
    ;;; Library Private
+   #:pkey-col-names
    ))
 
 (in-package :coalton-db/schema)
@@ -48,6 +49,17 @@ for the SQL table."
      create-opts
      (generate-cols (.col-specs schema) (.tbl-props schema))
      (.tbl-props schema)))
+
+  (declare pkey-col-names (Schema -> List String))
+  (define (pkey-col-names schema)
+    (for col in (.col-specs schema)
+      (when (contains? PrimaryKey (.properties col))
+        (return (make-list (.col-name
+                            (the ColumnDefinition col))))))
+    (for tbl-prop in (.tbl-props schema)
+      (match tbl-prop
+        ((CompositePrimaryKey% col-names) (return col-names))))
+    (error (build-str "Table " (.tbl-name schema) " defined without a primary key!")))
   )
 
 (cl:defmacro column (col-name col-type cl:&rest properties)
