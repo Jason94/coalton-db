@@ -27,9 +27,6 @@
    #:ResultParseError
    #:DbResult
 
-   #:ParseSql
-   #:parse-sql
-
    #:SqlQuery
 
    #:PrimaryKey
@@ -146,51 +143,6 @@ a type that can be passed directly to a DB implementation as a bound value."
          (error str)))))
 
   (define-type-alias DbResult (Result DbError)))
-
-;;;
-;;; Parse SQL Values
-;;;
-
-(coalton-toplevel
-  (define-class (ParseSql :a)
-    (parse-sql (SqlValue -> DbResult :a)))
-
-  (define-instance (ParseSql Integer)
-    (define (parse-sql val)
-      (match val
-        ((SqlInt i) (Ok i))
-        (_ (Err (ResultParseError
-                 (<> (<> "Could not convert " (force-string val))
-                     " to an integer.")))))))
-
-  (define-instance (ParseSql String)
-    (define (parse-sql val)
-      (match val
-        ((SqlText i) (Ok i))
-        (_ (Err (ResultParseError
-                 (<> (<> "Could not convert " (force-string val))
-                     " to a string.")))))))
-
-  (define-instance (ParseSql Boolean)
-    (define (parse-sql val)
-      (match val
-        ((SqlBool b) (Ok b))
-        ((SqlText s)
-         (cond
-           ((== s "FALSE") (Ok False))
-           ((== s "TRUE") (Ok True))
-           (True (Err (ResultParseError
-                       (<> (<> "Could not convert " (force-string val))
-                           " to a boolean."))))))
-        (_ (Err (ResultParseError
-                 (<> (<> "Could not convert " (force-string val))
-                     " to a boolean.")))))))
-
-  (define-instance (ParseSql :a => ParseSql (Optional :a))
-    (define (parse-sql val)
-      (match val
-        ((SqlNull) (Ok None))
-        (_ (map Some (parse-sql val)))))))
 
 ;;;
 ;;; SQL Query

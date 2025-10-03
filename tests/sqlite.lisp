@@ -1,6 +1,7 @@
 (defpackage coalton-db/tests/sqlite
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/core
+        #:coalton-db/from-row
         #:coalton-db/queries
         #:coalton-db/util
         #:coalton-db/sqlite)

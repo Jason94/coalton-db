@@ -2,6 +2,7 @@
   (:use #:coalton #:coalton-prelude #:coalton-testing
         #:coalton-db/util
         #:coalton-db/core
+        #:coalton-db/from-row
         #:coalton-db/queries
         #:coalton-db/db-m
         #:coalton-db/api-fp)

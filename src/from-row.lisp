@@ -9,6 +9,10 @@
    )
   (:export
    ;;; Library Public
+
+   #:ParseSql
+   #:parse-sql
+
    #:ParseSqlValue
    #:parse-row
    #:define-row-parser
@@ -22,7 +26,52 @@
 (named-readtables:in-readtable coalton:coalton)
 
 ;;;
-;;; Row Parser
+;;; Parse SQL Value
+;;;
+
+(coalton-toplevel
+  (define-class (ParseSql :a)
+    (parse-sql (SqlValue -> DbResult :a)))
+
+  (define-instance (ParseSql Integer)
+    (define (parse-sql val)
+      (match val
+        ((SqlInt i) (Ok i))
+        (_ (Err (ResultParseError
+                 (<> (<> "Could not convert " (force-string val))
+                     " to an integer.")))))))
+
+  (define-instance (ParseSql String)
+    (define (parse-sql val)
+      (match val
+        ((SqlText i) (Ok i))
+        (_ (Err (ResultParseError
+                 (<> (<> "Could not convert " (force-string val))
+                     " to a string.")))))))
+
+  (define-instance (ParseSql Boolean)
+    (define (parse-sql val)
+      (match val
+        ((SqlBool b) (Ok b))
+        ((SqlText s)
+         (cond
+           ((== s "FALSE") (Ok False))
+           ((== s "TRUE") (Ok True))
+           (True (Err (ResultParseError
+                       (<> (<> "Could not convert " (force-string val))
+                           " to a boolean."))))))
+        (_ (Err (ResultParseError
+                 (<> (<> "Could not convert " (force-string val))
+                     " to a boolean.")))))))
+
+  (define-instance (ParseSql :a => ParseSql (Optional :a))
+    (define (parse-sql val)
+      (match val
+        ((SqlNull) (Ok None))
+        (_ (map Some (parse-sql val)))))))
+
+;;;
+;;; Parse Rows
 ;;;
 
 (coalton-toplevel
