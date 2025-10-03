@@ -57,6 +57,7 @@
    #:CreateTable%
    #:CreateTableOption
    #:QueryOption
+   #:LiteralColumn%
    ))
 
 (in-package :coalton-db/queries)

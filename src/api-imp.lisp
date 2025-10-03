@@ -25,12 +25,15 @@
    #:query-rows!#
    #:query-row!
    #:query-row!#
+
    #:select-objs!
    #:select-objs!#
    #:select-obj!
    #:select-obj!#
    #:delete-obj!
    #:delete-obj!#
+   #:insert-obj!
+   #:insert-obj!#
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -132,13 +135,19 @@
 
   (declare delete-obj! ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> DbResult Unit))
   (define (delete-obj! cnxn obj)
-    (let qry = (Delete (From (tbl-name-for-obj obj))
-                       (Where (pkey-cnd-for obj))))
-    (execute-query! cnxn qry))
+    (execute-query! cnxn (delete-obj-query obj)))
 
   (declare delete-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Unit))
   (define (delete-obj!# cnxn obj)
     (r:ok-or-error (delete-obj! cnxn obj)))
+
+  (declare insert-obj! ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> DbResult Unit))
+  (define (insert-obj! cnxn obj)
+    (execute-query! cnxn (insert-obj-query obj)))
+
+  (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Unit))
+  (define (insert-obj!# cnxn obj)
+    (r:ok-or-error (insert-obj! cnxn obj)))
   )
 
 (cl:defmacro select-objs! (cnxn cl:&optional where?)

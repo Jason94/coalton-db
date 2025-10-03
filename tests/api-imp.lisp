@@ -124,6 +124,7 @@
         ("verified" (Some (SqlBool (.verified? user))))
         (_ None))))
 
+  (declare setup-users (DatabaseAdapter :d => :d -> List SimpleUser -> Unit))
   (define (setup-users cnxn users)
     (execute-query!# cnxn (CreateSchema simple-user-table))
     (for user in users
@@ -270,3 +271,23 @@
                     (select-objs! cnxn)))
   (is (== users
           (Ok Nil))))
+
+(define-test test-insert-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-obj! cnxn user1))
+  (let users = (select-objs! cnxn))
+  (is (== insert-result
+          (Ok Unit)))
+  (is (== users
+          (Ok (make-list user1)))))
+
+(define-test test-insert-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (insert-obj!# cnxn user1)
+  (let users = (select-objs! cnxn))
+  (is (== users
+          (Ok (make-list user1)))))

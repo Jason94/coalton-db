@@ -18,6 +18,7 @@
 
    ;;; Library Private
    #:pkey-col-names
+   #:col-names
    ))
 
 (in-package :coalton-db/schema)
@@ -60,6 +61,10 @@ for the SQL table."
       (match tbl-prop
         ((CompositePrimaryKey% col-names) (return col-names))))
     (error (build-str "Table " (.tbl-name schema) " defined without a primary key!")))
+
+  (declare col-names (Schema -> List String))
+  (define (col-names schema)
+    (map .col-name (.col-specs schema)))
   )
 
 (cl:defmacro column (col-name col-type cl:&rest properties)

@@ -232,3 +232,15 @@
           (the (DbResult (List SimpleUser))
                (Ok Nil)))))
 
+(define-test test-insert-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (insert-obj user)
+              (select-obj))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (Ok user))))

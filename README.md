@@ -20,6 +20,9 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add CompositeUnique table constraint
  - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
  - [ ] Add transaction support
+ - [ ] Add In_ to RowCondition
+ - [ ] Use In_ to implement delete-objs high-level api command
+ - [ ] Add upsert support
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
  - [ ] Add DEFAULT column property

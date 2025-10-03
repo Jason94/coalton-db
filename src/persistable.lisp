@@ -20,11 +20,16 @@
    #:schema-for
    #:prop-for-col
 
+   #:delete-obj-query
+   #:insert-obj-query
+
    ;;; Library Private
    #:pkey-col-val-pairs
    #:schema-for-obj
    #:tbl-name-for-obj
    #:pkey-cnd-for
+   #:col-names-for
+   #:sql-vals-for
    ))
 
 (in-package :coalton-db/persistable)
@@ -75,4 +80,32 @@ the column with the given name, if any."
      (match (tail zipped-pkeys)
        ((Some l) l)
        ((None) Nil))))
+
+  (declare col-names-for (Persistable :p => :p -> List String))
+  (define (col-names-for obj)
+    (col-names (schema-for-obj obj)))
+
+  (declare sql-vals-for (Persistable :p => :p -> List Sqlvalue))
+  (define (sql-vals-for obj)
+    "Get all of the SQL values for `obj`s data, in column order."
+    (op:from-some "Object missing data for column."
+                  (traverse (prop-for-col obj) (col-names-for obj))))
+  )
+
+;;;
+;;; FRM Queries
+;;;
+
+(coalton-toplevel
+  (declare delete-obj-query (Persistable :p => :p -> Query))
+  (define (delete-obj-query obj)
+    (Delete (From (tbl-name-for-obj obj))
+            (Where (pkey-cnd-for obj))))
+
+  (declare insert-obj-query (Persistable :p => :p -> Query))
+  (define (insert-obj-query obj)
+    (Insert (IntoTable (tbl-name-for-obj obj))
+            (sql-vals-for obj)
+            ;; NOTE: Maybe using the col-names isn't necessary?
+            (map LiteralColumn% (col-names-for obj))))
   )
