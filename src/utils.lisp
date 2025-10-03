@@ -16,6 +16,7 @@
    #:contains?
    #:contains-where?
    #:liftAn
+   #:optional-clause
    ))
 (in-package :coalton-db/util)
 
@@ -75,3 +76,10 @@
 
 (cl:defmacro liftAn (f cl:&rest rest)
   (liftAn_ f rest))
+
+(cl:defun optional-clause (val)
+  "Generate code to wrap a possibly Common Lisp val (particularly a macro arg),
+in a Coalton Optional."
+  (cl:if val
+         `(Some ,val)
+         `None))

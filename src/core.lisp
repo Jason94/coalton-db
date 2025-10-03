@@ -165,7 +165,6 @@ a type that can be passed directly to a DB implementation as a bound value."
     PrimaryKey
     Unique)
 
-
   (define-type GhostColumnProperty
     "Keywords used in the syntax, but not inserted as column propertiese into the
 column definition."

@@ -5,6 +5,7 @@
         #:coalton-db/to-row
         #:coalton-db/from-row
         #:coalton-db/schema
+        #:coalton-db/persistable
         #:coalton-db/queries
         #:coalton-db/db-m
         #:coalton-db/api-imp)
@@ -114,6 +115,9 @@
     (define (to-row user)
       (build-row user .name .verified?)))
 
+  (define-instance (Persistable SimpleUser)
+    (define schema-for (const simple-user-table)))
+
   (define (setup-users cnxn users)
     (execute-query!# cnxn (CreateSchema simple-user-table))
     (for user in users
@@ -160,4 +164,44 @@
                                           (From "users"))))
   (sq:disconnect-sqlite! cnxn)
   (is (== user1
+          result)))
+
+(define-test test-query-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (query-objs! cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1 user2))
+          result)))
+
+(define-test test-query-objs-where ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (query-objs! cnxn (Where (Eq_ "name" (Value "Steve")))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1))
+          result)))
+
+(define-test test-query-objs-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (query-objs!# cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (make-list user1 user2)
+          result)))
+
+(define-test test-query-objs-where-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (query-objs!# cnxn (Where (Eq_ "name" (Value "Steve")))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (make-list user1)
           result)))

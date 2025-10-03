@@ -56,6 +56,7 @@
    #:is-composite-pkey?
    #:CreateTable%
    #:CreateTableOption
+   #:QueryOption
    ))
 
 (in-package :coalton-db/queries)

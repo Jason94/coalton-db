@@ -81,7 +81,7 @@
 
   (declare get-tables (DBM IO (DbResult (List Row))))
   (define get-tables
-    (query-rows (Select AllCols (From "users"))))
+    (query-sql-rows (Select AllCols (From "users"))))
 
   (declare main (IO Unit))
   (define main
@@ -92,7 +92,6 @@
        (write-line "Creating user table...")
        (execute-query create-user-table)
        (insert-tables)
-       (write-line (<> "Update result: " (force-string update-res)))
        (result <- get-tables)
        (match result
          ((Err e)

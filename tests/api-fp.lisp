@@ -5,6 +5,7 @@
         #:coalton-db/schema
         #:coalton-db/to-row
         #:coalton-db/from-row
+        #:coalton-db/persistable
         #:coalton-db/queries
         #:coalton-db/db-m
         #:coalton-db/api-fp)
@@ -107,7 +108,10 @@
 
   (define-instance (ToRow SimpleUser)
     (define (to-row user)
-      (build-row user .name .verified?))))
+      (build-row user .name .verified?)))
+
+  (define-instance (Persistable SimpleUser)
+    (define schema-for (const simple-user-table))))
 
 (define-test test-select-rows ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
@@ -140,4 +144,38 @@
                                  (From "users"))))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok user)
+          result)))
+
+(define-test test-query-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user)))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user2)))
+              (query-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user user2))
+          result)))
+
+(define-test test-query-objs-where ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user)))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user2)))
+              (query-objs (Where (Eq_ "name" (Value "Steve")))))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user))
           result)))

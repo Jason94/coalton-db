@@ -4,12 +4,16 @@
    #:coalton
    #:coalton-prelude
    #:coalton-db/core
+   #:coalton-db/from-row
+   #:coalton-db/schema
    )
   (:local-nicknames
+   (:ty #:coalton-library/types)
    )
   (:export
    ;;; Library Public
    #:Persistable
+   #:schema-for
 
    ;;; Library Private
    ))
@@ -19,5 +23,6 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (define-class (Persistable :a)
-    ))
+  (define-class (ParseSqlRow :a => Persistable :a)
+    (schema-for (ty:Proxy :a -> Schema)))
+  )

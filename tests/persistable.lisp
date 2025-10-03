@@ -15,16 +15,3 @@
 (fiasco:define-test-package #:coalton-db/tests/persistable-fiasco)
 (coalton-fiasco-init #:coalton-db/tests/persistable-fiasco)
 
-(coalton-toplevel
-  (define-struct User
-    (name String)
-    (age (Optional Integer))
-    (verified? Boolean))
-
-  (define-instance (ToRow User)
-    (define (to-row user)
-      (build-row user .name .age .verified?)))
-
-  (define-instance (Persistable User)
-    ))
-
