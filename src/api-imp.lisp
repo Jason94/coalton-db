@@ -14,9 +14,14 @@
    ;;; Library Public
    #:query-sql-rows!
    #:query-sql-rows!#
+   #:query-sql-row!
+   #:query-sql-row!#
    #:execute-query!
    #:execute-query!#
    #:query-rows!
+   #:query-rows!#
+   #:query-row!
+   #:query-row!#
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -31,6 +36,18 @@
   (declare query-sql-rows!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> List Row))
   (define (query-sql-rows!# cnxn qry)
     (r:ok-or-error (query-sql-rows! cnxn qry)))
+
+  (declare query-sql-row! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult Row))
+  (define (query-sql-row! cnxn qry)
+    (>>= (query-sql-rows! cnxn qry)
+         (fn (input)
+           (match input
+             ((Nil) (err-out-of-vals))
+             ((Cons row _) (Ok row))))))
+
+  (declare query-sql-row!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> Row))
+  (define (query-sql-row!# cnxn qry)
+    (r:ok-or-error (query-sql-row! cnxn qry)))
 
   (declare execute-query! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult Unit))
   (define (execute-query! cnxn qry)
@@ -47,4 +64,22 @@
     (>>= (query-sql-rows! cnxn qry)
          (traverse parse-row)))
 
+  (declare query-rows!# ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
+                        :d -> :q -> List :p))
+  (define (query-rows!# cnxn qry)
+    (r:ok-or-error (query-rows! cnxn qry)))
+
+  (declare query-row! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
+                        :d -> :q -> DbResult :p))
+  (define (query-row! cnxn qry)
+    (>>= (query-sql-rows! cnxn qry)
+         (fn (input)
+           (match input
+             ((Nil) (err-out-of-vals))
+             ((Cons row _) (parse-row row))))))
+
+  (declare query-row!# ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
+                        :d -> :q -> :p))
+  (define (query-row!# cnxn qry)
+    (r:ok-or-error (query-row! cnxn qry)))
   )

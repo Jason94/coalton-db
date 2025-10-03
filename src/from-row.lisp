@@ -24,6 +24,7 @@
    #:sql-value-parser
 
    ;;; Library Private
+   #:err-out-of-vals
    ))
 
 (in-package :coalton-db/from-row)
@@ -113,6 +114,10 @@
   (define-class (ParseSqlRow :p)
     (sql-value-parser (RowParser :p)))
 
+  (inline)
+  (define (err-out-of-vals)
+    (Err (ResultParseError "Unexpected SQL values to parse.")))
+
   (declare parse-row (ParseSqlRow :a => Row -> DbResult :a))
   (define (parse-row input)
     (do
@@ -120,8 +125,7 @@
      (match rest
        ((Nil)
         (Ok result))
-       (_
-        (Err (ResultParseError "Unexpected SQL values to parse."))))))
+       (_ (err-out-of-vals)))))
 
   (declare parse-rows (ParseSqlRow :a => List Row -> DbResult (List :a)))
   (define (parse-rows rows)
@@ -143,7 +147,7 @@ abort parsing the whole list."
          (RowParser (fn (row)
                       (match row
                         ((Nil)
-                         (Err (ResultParseError "Ran out of SQL values to parse.")))
+                         (err-out-of-vals))
                         ((Cons x rest)
                          (do
                           (val <- (parse-val x))
@@ -165,9 +169,9 @@ abort parsing the whole list."
       (RowParser (fn (row)
                    (match row
                      ((Nil)
-                      (Err (ResultParseError "Ran out of SQL values to parse.")))
+                      (err-out-of-vals))
                      ((Cons _ (Nil))
-                      (Err (ResultParseError "Ran out of SQL values to parse.")))
+                      (err-out-of-vals))
                       (_
                        (do
                         ((Tuple a rest1) <- (run-row-parser sql-value-parser row))

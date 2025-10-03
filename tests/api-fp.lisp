@@ -76,6 +76,15 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok Unit) result)))
 
+(define-test test-query-sql-row ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let result =
+    (run-db! cnxn
+             (query-sql-row (Select (Values 1 2 3)))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (Values 1 2 3))
+          result)))
+
 ;;;
 ;;; Test FRM
 ;;;
@@ -102,6 +111,24 @@
 
 (define-test test-select-rows ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user1)))
+              (execute-query (Insert (IntoTable "users")
+                                     (to-row user2)))
+              (query-rows (Select AllCols
+                                  (From "users"))))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1 user2))
+          result)))
+
+(define-test test-select-row ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user = (SimpleUser "Steve" False))
   (let result =
     (run-db! cnxn
@@ -109,8 +136,8 @@
               (execute-query (CreateSchema simple-user-table))
               (execute-query (Insert (IntoTable "users")
                                      (to-row user)))
-              (query-rows (Select AllCols
-                                  (From "users"))))))
+              (query-row (Select AllCols
+                                 (From "users"))))))
   (sq:disconnect-sqlite! cnxn)
-  (is (== (Ok (make-list user))
+  (is (== (Ok user)
           result)))

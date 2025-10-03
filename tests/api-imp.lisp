@@ -74,6 +74,22 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== Unit result)))
 
+(define-test test-query-sql-row ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (Select (Values 1 2 3)))
+  (let result = (query-sql-row! cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (Values 1 2 3))
+          result)))
+
+(define-test test-query-sql-row-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (Select (Values 1 2 3)))
+  (let result = (query-sql-row!# cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Values 1 2 3)
+          result)))
+
 ;;;
 ;;; Test FRM
 ;;;
@@ -98,14 +114,56 @@
     (define (to-row user)
       (build-row user .name .verified?))))
 
-(define-test test-select-value ()
+(define-test test-query-rows ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
-  (let user = (SimpleUser "Steve" False))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
   (execute-query!# cnxn (CreateSchema simple-user-table))
   (execute-query!# cnxn (Insert (IntoTable "users")
-                                (to-row user)))
+                                (to-row user1)))
+  (execute-query!# cnxn (Insert (IntoTable "users")
+                                (to-row user2)))
   (let result = (query-rows! cnxn (Select AllCols
                                           (From "users"))))
   (sq:disconnect-sqlite! cnxn)
-  (is (== (Ok (make-list user))
+  (is (== (Ok (make-list user1 user2))
+          result)))
+
+(define-test test-query-rows-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (execute-query!# cnxn (CreateSchema simple-user-table))
+  (execute-query!# cnxn (Insert (IntoTable "users")
+                                (to-row user1)))
+  (execute-query!# cnxn (Insert (IntoTable "users")
+                                (to-row user2)))
+  (let result = (query-rows!# cnxn (Select AllCols
+                                          (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (make-list user1 user2)
+          result)))
+
+(define-test test-query-row ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (execute-query!# cnxn (CreateSchema simple-user-table))
+  (execute-query!# cnxn (Insert (IntoTable "users")
+                                (to-row user1)))
+  (let result = (query-row! cnxn (Select AllCols
+                                           (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok user1)
+          result)))
+
+(define-test test-query-row-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (execute-query!# cnxn (CreateSchema simple-user-table))
+  (execute-query!# cnxn (Insert (IntoTable "users")
+                                (to-row user1)))
+  (let result = (query-row!# cnxn (Select AllCols
+                                         (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== user1
           result)))
