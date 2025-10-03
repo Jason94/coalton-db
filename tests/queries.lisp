@@ -287,6 +287,16 @@
               ((SqlInt 1) (SqlText "Alice"))
               result))
 
+(define-test test-insert-multiple-rows-with-columns ()
+  (let result = (to-sql-test1
+                 (Insert (IntoTable "test-table")
+                         (Values 1 "Alice"
+                                 2 "Steve")
+                         (Cols "id" "name"))))
+  (is-sql-eql "INSERT INTO test-table (id, name) VALUES (?, ?), (?, ?);"
+              (1 "Alice" 2 "Steve")
+              result))
+
 ;;;
 ;;; UPDATE Tests
 ;;;

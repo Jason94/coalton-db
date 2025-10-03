@@ -68,4 +68,8 @@ the right parameter list."
   `(progn
      (let (SqlQuery sql-str-b params-b) = ,sql-b)
      (is (== (norm ,sql-str-a) (norm sql-str-b)))
-     (is (== (make-list ,@params-a) params-b))))
+     (is (== (make-list ,@(cl:mapcar
+                           (cl:lambda (clause)
+                             `(into ,clause))
+                           params-a))
+             params-b))))

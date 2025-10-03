@@ -34,12 +34,18 @@
    #:delete-obj!#
    #:insert-obj!
    #:insert-obj!#
+   #:insert-objs!
+   #:insert-objs!#
    ))
 (cl:in-package :coalton-db/api-imp)
 
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
+  ;;;
+  ;;; Low Level Query Ops (Return SQL Values)
+  ;;;
+
   (declare query-sql-rows! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult (List Row)))
   (define (query-sql-rows! cnxn qry)
     (run-query! cnxn
@@ -95,6 +101,10 @@
   (define (query-row!# cnxn qry)
     (r:ok-or-error (query-row! cnxn qry)))
 
+  ;;;
+  ;;; FRM Query Ops
+  ;;;
+
   (declare select-objs!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult (List :p)))
   (define (select-objs!_ cnxn opt?)
     (let prx-rst = ty:Proxy)
@@ -148,6 +158,17 @@
   (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Unit))
   (define (insert-obj!# cnxn obj)
     (r:ok-or-error (insert-obj! cnxn obj)))
+
+  (declare insert-objs! ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> DbResult Unit))
+  (define (insert-objs! cnxn objs)
+    (match (insert-objs-query objs)
+      ((None) (pure Unit))
+      ((Some qry)
+       (execute-query! cnxn qry))))
+
+  (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> Unit))
+  (define (insert-objs!# cnxn objs)
+    (r:ok-or-error (insert-objs! cnxn objs)))
   )
 
 (cl:defmacro select-objs! (cnxn cl:&optional where?)

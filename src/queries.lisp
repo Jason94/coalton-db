@@ -12,6 +12,7 @@
    (:s #:coalton-library/string)
    (:ty #:coalton-library/types)
    (:lst #:coalton-library/list)
+   (:op #:coalton-library/optional)
    (:itr #:coalton-library/iterator))
   (:export
    ;;; Library Public
@@ -427,6 +428,35 @@
       ((CompositePrimaryKey% tables)
        (build-str "PRIMARY KEY (" (join-str ", " tables) ")"))))
 
+  (declare insert-into-values-sql (DatabaseAdapter :a => List SqlValue -> Optional (List SqlColumn)
+                                                   -> ty:Proxy :a -> c:Cell (Optional String) -> String))
+  (define (insert-into-values-sql vals cols? db-prx last-param-str)
+    (let convert-chunk =
+      (fn (vals-chunk)
+         (build-str
+          "("
+          (join-str ", " (map (fn (_) (get-next-placeholder! db-prx last-param-str)) vals-chunk))
+          ")")))
+    (let placeholders =
+      (match cols?
+        ((None)
+         (Some (convert-chunk vals)))
+        ((Some cols)
+         (let chunked-vals = (chunk-list (length cols) vals))
+         (match chunked-vals
+           ((Nil) None)
+           ((Cons fst-chunk chunks)
+            (Some
+             (fold (fn (str vals-chunk)
+                     (build-str
+                      str
+                      ", "
+                      (convert-chunk vals-chunk)))
+                   (convert-chunk fst-chunk)
+                   chunks)))))))
+    (op:from-some (build-str "Didn't supply enough values to insert into " (force-string cols?))
+                  (map (<> "VALUES ") placeholders)))
+
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
     "Convert a Query object to a SQL string that can be run in a database."
@@ -473,8 +503,7 @@
         (build-str "DELETE FROM " from-qry opts-sql ";")
         opts-params))
       ((Insert% into-stmt insert-vals cols?)
-       (let placeholders = (join-str ", " (map (fn (_) (get-next-placeholder! db-adptr-proxy last-param-str))
-                                               insert-vals)))
+       (let vals-sql = (insert-into-values-sql insert-vals cols? db-adptr-proxy last-param-str))
        (let cols-sql =
          (match cols?
            ((None) "")
@@ -485,7 +514,7 @@
        (let insert-sql = (build-str "INSERT INTO "
                                     (into-stmt->tbl-name into-stmt)
                                     cols-sql
-                                    " VALUES (" placeholders ");"))
+                                    " " vals-sql ";"))
        (SqlQuery insert-sql insert-vals))
       ((Update% tbl set-targets query-opts)
        (let set-sqls =

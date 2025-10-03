@@ -17,6 +17,7 @@
    #:contains-where?
    #:liftAn
    #:optional-clause
+   #:chunk-list
    ))
 (in-package :coalton-db/util)
 
@@ -83,3 +84,14 @@ in a Coalton Optional."
   (cl:if val
          `(Some ,val)
          `None))
+
+(coalton-toplevel
+  (declare chunk-list (UFix -> List :a -> List (List :a)))
+  (define (chunk-list n lst)
+    (rec % ((ret Nil)
+            (rem lst))
+      (match rem
+        ((Nil) (reverse ret))
+        (_ (% (Cons (l:take n rem)
+                    ret)
+              (l:drop n rem)))))))

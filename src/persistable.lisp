@@ -22,6 +22,7 @@
 
    #:delete-obj-query
    #:insert-obj-query
+   #:insert-objs-query
 
    ;;; Library Private
    #:pkey-col-val-pairs
@@ -108,4 +109,19 @@ the column with the given name, if any."
             (sql-vals-for obj)
             ;; NOTE: Maybe using the col-names isn't necessary?
             (map LiteralColumn% (col-names-for obj))))
+
+  (declare insert-objs-query (Persistable :p => List :p -> Optional Query))
+  (define (insert-objs-query objs)
+    "Generate a query to insert `objs`. If empty, returns `None`."
+    (match objs
+      ((Nil) None)
+      ((Cons fst _)
+       (let cols = (map LiteralColumn% (col-names-for fst)))
+       (let vals = (the (List SqlValue)
+                        (>>= objs sql-vals-for)))
+       (Some
+        (Insert (IntoTable (tbl-name-for-obj fst))
+                vals
+                cols)))))
+
   )

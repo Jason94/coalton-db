@@ -23,6 +23,7 @@
    #:Row
 
    #:DbError
+   #:QueryConstructionError
    #:QueryError
    #:ResultParseError
    #:DbResult
@@ -131,12 +132,15 @@ a type that can be passed directly to a DB implementation as a bound value."
 (coalton-toplevel
   (derive Eq)
   (define-type DbError
+    (QueryConstructionError String)
     (QueryError String)
     (ResultParseError String))
 
   (define-instance (Signalable DbError)
     (define (error err)
       (match err
+        ((QueryConstructionError str)
+         (error str))
         ((QueryError str)
          (error str))
         ((ResultParseError str)

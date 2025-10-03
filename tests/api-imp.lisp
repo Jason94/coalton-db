@@ -291,3 +291,27 @@
   (let users = (select-objs! cnxn))
   (is (== users
           (Ok (make-list user1)))))
+
+(define-test test-insert-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-objs! cnxn (make-list user1 user2)))
+  (let users = (select-objs! cnxn))
+  (is (== insert-result
+          (Ok Unit)))
+  (is (== users
+          (Ok (make-list user1 user2)))))
+
+(define-test test-insert-objs-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (insert-objs!# cnxn (make-list user1 user2))
+  (let users = (select-objs! cnxn))
+  (is (== insert-result
+          (Ok Unit)))
+  (is (== users
+          (Ok (make-list user1 user2)))))
