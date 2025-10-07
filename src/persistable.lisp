@@ -23,11 +23,11 @@
    #:delete-obj-query
    #:insert-obj-query
    #:insert-objs-query
+   #:update-obj-query
 
    ;;; Library Private
    #:pkey-col-val-pairs
    #:schema-for-obj
-   #:tbl-name-for-obj
    #:pkey-cnd-for
    #:col-names-for
    #:sql-vals-for
@@ -123,5 +123,53 @@ the column with the given name, if any."
         (Insert (IntoTable (tbl-name-for-obj fst))
                 vals
                 cols)))))
+
+  (declare update-col-err (Persistable :p => :p -> String -> String))
+  (define (update-col-err obj col-name)
+    (build-str "Could not find column " col-name
+               " on table " (tbl-name-for-obj obj)
+               " when trying to update."))
+
+  (declare update-obj-query (Persistable :p => :p -> Optional (List String) -> Optional Query))
+  (define (update-obj-query obj where-cols?)
+    (let where-cols =
+      (match where-cols?
+        ((Some cols) cols)
+        ((None) (pkey-col-names (schema-for-obj obj)))))
+    (let value-cols = (l:remove-if (fn (col)
+                                     (contains? col where-cols))
+                                   (col-names (schema-for-obj obj))))
+    (match value-cols
+      ((Nil) None)
+      (value-cols
+       (match where-cols
+         ((Nil) (error "Cannot update a table with no equality columns."))
+         ((Cons fst-where-col rest-where-cols)
+          (let cnd =
+            (Where
+             (fold
+              (fn (cnd col-name)
+                (And_ cnd (Eq_ col-name
+                               (Value
+                                (op:from-some
+                                 (update-col-err obj col-name)
+                                 (prop-for-col obj col-name))))))
+              (Eq_ fst-where-col
+                   (Value
+                    (op:from-some
+                     (update-col-err obj fst-where-col)
+                     (prop-for-col obj fst-where-col))))
+              rest-where-cols)))
+          (let set-targets =
+            (map (fn (col-name)
+                   (SetTarget (LiteralColumn% col-name)
+                              (op:from-some
+                               (update-col-err obj col-name)
+                               (prop-for-col obj col-name))))
+                 value-cols))
+          (Some
+           (Update% (tbl-name-for-obj obj)
+                    set-targets
+                    (Some cnd))))))))
 
   )

@@ -26,6 +26,7 @@
    #:delete-obj
    #:insert-obj
    #:insert-objs
+   #:update-obj
    ))
 (cl:in-package :coalton-db/api-fp)
 
@@ -120,6 +121,13 @@
       ((None) (pure (Ok Unit)))
       ((Some qry)
        (execute-query qry))))
+
+  (declare update-obj_ ((Monad :m) (Persistable :p) => :p -> Optional (List String) -> DBM :m (DbResult Unit)))
+  (define (update-obj_ obj cols)
+    (match (update-obj-query obj cols)
+      ((None) (pure (Ok Unit)))
+      ((Some qry)
+       (execute-query qry))))
   )
 
 (cl:defmacro select-objs (cl:&optional where?)
@@ -127,3 +135,9 @@
 
 (cl:defmacro select-obj (cl:&optional where?)
   `(select-obj_ ,(optional-clause where?)))
+
+(cl:defmacro update-obj (obj cl:&optional where-cols)
+  (cl:let ((where-cols-clause (cl:if where-cols
+                                     `(Some (make-list ,@where-cols))
+                                     `None)))
+    `(update-obj_ ,obj ,where-cols-clause)))

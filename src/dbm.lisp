@@ -10,6 +10,8 @@
   (:local-nicknames
    (:i #:coalton-library/monad/identity)
    (:ft #:coalton-library/monad/freet)
+   (:env #:coalton-library/monad/environment)
+   (:st #:coalton-library/monad/stateT)
    (:ty #:coalton-library/types)
    (:io-t #:simple-io/term)
    (:io-u #:simple-io/unique))
@@ -71,6 +73,16 @@
   (declare run-db! (DatabaseAdapter :d => :d -> DB :a -> :a))
   (define (run-db! cnxn op)
     (i:run-identity (run-dbM! cnxn op))))
+
+;;;
+;;; Std. Lib. Transformer Instances
+;;;
+
+(coalton-toplevel
+  (define-instance (st:MonadState :s :m => (st:MonadState :s (DbM :m)))
+    (define st:get (lift st:get))
+    (define st:put (compose lift st:put))
+    (define st:modify (compose lift st:modify))))
 
 ;;;
 ;;; Other DBM Instances

@@ -258,3 +258,38 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== result
           (Ok (make-list user user2)))))
+
+(define-test test-update-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user1-updated = (SimpleUser "Steve" True))
+  (let user2 = (SimpleUser "Bill" False))
+  (let user2-updated = (SimpleUser "Bill" True))
+  (let user3 = (SimpleUser "Susan" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (insert-objs (make-list user1 user2 user3))
+              (update-obj user1-updated)
+              (update-obj user2-updated)
+              (select-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (Ok (make-list user1-updated user2-updated user3)))))
+
+(define-test test-update-obj-specify-cols ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user1-updated = (SimpleUser "Steven" False))
+  (let user2 = (SimpleUser "Bill" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (insert-objs (make-list user1 user2))
+              (update-obj user1-updated ("verified"))
+              (select-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (Ok (make-list user1-updated user2)))))

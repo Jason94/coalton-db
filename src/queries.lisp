@@ -59,6 +59,9 @@
    #:CreateTableOption
    #:QueryOption
    #:LiteralColumn%
+   #:unwrap-col-name
+   #:SetTarget
+   #:Update%
    ))
 
 (in-package :coalton-db/queries)
@@ -70,8 +73,14 @@
 ;;;
 
 (coalton-toplevel
+  ;; TODO: Either revisit this abstraction or use it more consistently
   (define-type SqlColumn
     (LiteralColumn% String))
+
+  (inline)
+  (declare unwrap-col-name (SqlColumn -> String))
+  (define (unwrap-col-name (LiteralColumn% s))
+    s)
 
   (define-instance (Into String SqlColumn)
     (inline)

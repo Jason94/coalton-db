@@ -15,3 +15,9 @@
 (fiasco:define-test-package #:coalton-db/tests/persistable-fiasco)
 (coalton-fiasco-init #:coalton-db/tests/persistable-fiasco)
 
+;; NOTE: We're currently testing select, delete, & insert directly
+;; in the api-fp and api-imp integration tests. They actually didn't
+;; call anything originally from Persistable, so that seemed reasonable.
+;;
+;; BUT the Update persistable query has some functionality that isn't
+;; visible from the api surface, like which

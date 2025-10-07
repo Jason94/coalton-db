@@ -8,6 +8,7 @@
    #:coalton-db/queries
    )
   (:local-nicknames
+   (:l #:coalton-library/list)
    )
   (:export
    ;;; Library Public
@@ -19,6 +20,7 @@
    ;;; Library Private
    #:pkey-col-names
    #:col-names
+   #:non-pkey-col-names
    ))
 
 (in-package :coalton-db/schema)
@@ -65,6 +67,12 @@ for the SQL table."
   (declare col-names (Schema -> List String))
   (define (col-names schema)
     (map .col-name (.col-specs schema)))
+
+  (declare non-pkey-col-names (Schema -> List String))
+  (define (non-pkey-col-names schema)
+    (let pkeys = (pkey-col-names schema))
+    (l:remove-if (fn (x) (contains? x pkeys))
+                 (col-names schema)))
   )
 
 (cl:defmacro column (col-name col-type cl:&rest properties)
