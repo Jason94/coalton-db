@@ -36,6 +36,8 @@
    #:insert-obj!#
    #:insert-objs!
    #:insert-objs!#
+   #:update-obj!
+   #:update-obj!#
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -169,6 +171,18 @@
   (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> Unit))
   (define (insert-objs!# cnxn objs)
     (r:ok-or-error (insert-objs! cnxn objs)))
+
+  (declare update-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> DbResult Unit))
+  (define (update-obj!_ cnxn obj where-cols?)
+    (match (update-obj-query obj where-cols?)
+      ((Some qry)
+       (execute-query! cnxn qry))
+      ((None)
+       (pure Unit))))
+
+  (declare update-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> Unit))
+  (define (update-obj!#_ cnxn obj where-cols?)
+    (r:ok-or-error (update-obj!_ cnxn obj where-cols?)))
   )
 
 (cl:defmacro select-objs! (cnxn cl:&optional where?)
@@ -182,3 +196,15 @@
 
 (cl:defmacro select-obj!# (cnxn cl:&optional where?)
   `(select-obj!#_ ,cnxn ,(optional-clause where?)))
+
+(cl:defmacro update-obj! (cnxn obj cl:&optional where-cols)
+  (cl:let ((where-cols-clause (cl:if where-cols
+                                     `(Some (make-list ,@where-cols))
+                                     `None)))
+    `(update-obj!_ ,cnxn ,obj ,where-cols-clause)))
+
+(cl:defmacro update-obj!# (cnxn obj cl:&optional where-cols)
+  (cl:let ((where-cols-clause (cl:if where-cols
+                                     `(Some (make-list ,@where-cols))
+                                     `None)))
+    `(update-obj!#_ ,cnxn ,obj ,where-cols-clause)))
