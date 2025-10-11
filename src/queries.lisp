@@ -304,13 +304,19 @@
 
 (cl:defun col-clause-to-col-def-clause (name type properties)
   (cl:let* ((concrete-properties (cl:remove-if (cl:lambda (sym)
-                                                 (cl:equalp sym 'Nullable))
+                                                 (cl:or
+                                                  (cl:equalp sym 'Nullable)
+                                                  (cl:equalp sym 'AutoIncrement)))
                                                properties))
             (col-is-nullable? (cl:find 'Nullable properties))
             (nullable-clause (cl:if col-is-nullable?
                                     'True
-                                    'False)))
-    `(ColumnDefinition ,name ,type (make-list ,@concrete-properties) ,nullable-clause)))
+                                    'False))
+            (col-is-autoinc? (cl:find 'AutoIncrement properties))
+            (autoinc-clause (cl:if col-is-autoinc?
+                                   'True
+                                   'False)))
+    `(ColumnDefinition ,name ,type (make-list ,@concrete-properties) ,nullable-clause ,autoinc-clause)))
 
 (cl:defmacro CompositePrimaryKey (first-col cl:&rest rem-cols)
   "Create a table with a multi-column primary key in a SQL query."
@@ -406,15 +412,24 @@
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
        (Tuple (build-str "NOT " cnd-sql) cnd-params))))
 
-  (declare col-def-to-sql (ColumnDefinition -> String))
-  (define (col-def-to-sql col-def)
+  (declare col-def-to-sql (DatabaseAdapter :d => ty:Proxy :d -> ColumnDefinition -> String))
+  (define (col-def-to-sql db-prx col-def)
     (let type-sql = (match (.col-type col-def)
                       ((IntType) "INTEGER")
                       ((TextType) "TEXT")
                       ((BoolType) "BOOLEAN")))
     (let prop-to-sql = (fn (prop)
                          (match prop
-                           ((PrimaryKey) "PRIMARY KEY")
+                           ((PrimaryKey)
+                            (if (.auto-increment? col-def)
+                                (progn
+                                  (let (AutoIncrementSyntax left-clause right-clause) =
+                                    (auto-increment-syntax db-prx))
+                                  (build-str
+                                   (right-pad left-clause)
+                                   "PRIMARY KEY"
+                                   (left-pad right-clause)))
+                                "PRIMARY KEY"))
                            ((Unique) "UNIQUE"))))
     (let props-sql =
       (join-str " " (map prop-to-sql (.properties col-def))))
@@ -545,7 +560,7 @@
         (build-str "DROP TABLE " opt-sql tbl ";")
         (make-list)))
       ((CreateTable% tbl-name create-table-opts col-defs tbl-props)
-       (let col-defs-sql = (join-str ", " (map col-def-to-sql col-defs)))
+       (let col-defs-sql = (join-str ", " (map (col-def-to-sql db-adptr-proxy) col-defs)))
        (let tbl-props-sql =
          (if (== Nil tbl-props)
              ""

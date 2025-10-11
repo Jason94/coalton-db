@@ -34,8 +34,9 @@
      (contains? PrimaryKey (>>= col-specs .properties))
      (contains-where? is-composite-pkey? tbl-specs)))
 
+  (declare default-pkey-col-def ColumnDefinition)
   (define default-pkey-col-def
-     (ColumnDefinition "id" IntType (make-list PrimaryKey) False))
+     (ColumnDefinition "id" IntType (make-list PrimaryKey) False False))
 
   (declare generate-cols (List ColumnDefinition -> List TableProperty -> List ColumnDefinition))
   (define (generate-cols col-specs tbl-specs)

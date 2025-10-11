@@ -33,6 +33,7 @@
    #:PrimaryKey
    #:Unique
    #:Nullable
+   #:AutoIncrement
 
    #:Schema
 
@@ -41,6 +42,8 @@
    ;;; Library Private
    #:next-placeholder
    #:run-query!
+   #:auto-increment-syntax
+   #:AutoIncrementSyntax
    #:execute-query!_
 
    #:wrap-raw-sql-value
@@ -175,7 +178,10 @@ column definition."
     Nullable
     "SQL defaults to Nullable, but coalton-db defaults to Not-Nullable. To support
 that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
-`Nullable` 'ghost' property is used in the definition.")
+`Nullable` 'ghost' property is used in the definition."
+    AutoIncrement
+    "Different adapters write AutoIncrement before/after the 'PRIMARY KEY' modifier,
+so we can't serialize it directly into the sql query string.")
 
   (repr :enum)
   (derive Eq)
@@ -188,7 +194,9 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
     (col-name String)
     (col-type SqlType)
     (properties (List ColumnProperty))
-    (nullable? Boolean))
+    ;; TODO: Convert these to a (List GhostColumnProperty)
+    (nullable? Boolean)
+    (auto-increment? Boolean))
 
   (define-type-alias SqlTable String)
 
@@ -206,8 +214,15 @@ that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
 ;;;
 
 (coalton-toplevel
+  (define-struct AutoIncrementSyntax
+    "Store SQL strings to be inserted before and/or after 'PRIMARY KEY' in an
+AutoIncrement column."
+    (before-pkey String)
+    (after-pkey String))
+
   (define-class (DatabaseAdapter :a)
     (next-placeholder (ty:Proxy :a -> Optional String -> String))
+    (auto-increment-syntax (ty:Proxy :a -> AutoIncrementSyntax))
     (run-query! (:a -> SqlQuery -> DbResult (List Row))))
 
   ;; NOTE: Depending on the underlying database library, it might be worth exposing

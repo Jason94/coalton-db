@@ -18,6 +18,8 @@
    #:liftAn
    #:optional-clause
    #:chunk-list
+   #:left-pad
+   #:right-pad
    ))
 (in-package :coalton-db/util)
 
@@ -94,4 +96,19 @@ in a Coalton Optional."
         ((Nil) (reverse ret))
         (_ (% (Cons (l:take n rem)
                     ret)
-              (l:drop n rem)))))))
+              (l:drop n rem))))))
+
+  (declare left-pad (String -> String))
+  (define (left-pad str)
+    "Add a blank space to the left of `str` if it is not the empty string."
+    (if (== str "")
+        ""
+        (<> " " str)))
+
+  (declare right-pad (String -> String))
+  (define (right-pad str)
+    "Add a blank space to the right of `str` if it is not the empty string."
+    (if (== str "")
+        ""
+        (<> str " ")))
+  )

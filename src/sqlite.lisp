@@ -47,6 +47,8 @@
   (define-instance (DatabaseAdapter SqliteConnection)
     (define (next-placeholder _ _)
       "?")
+    (define (auto-increment-syntax _)
+      (AutoIncrementSyntax "" "AUTOINCREMENT"))
     (define (run-query! cnxn (SqlQuery sql params))
       (let normed-params = (map norm-sqlite-types params))
       (lisp :x (cnxn sql normed-params)
