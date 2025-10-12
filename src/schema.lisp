@@ -36,7 +36,7 @@
 
   (declare default-pkey-col-def ColumnDefinition)
   (define default-pkey-col-def
-     (ColumnDefinition "id" IntType (make-list PrimaryKey) False False))
+     (ColumnDefinition "id" IntType (make-list PrimaryKey) False True))
 
   (declare generate-cols (List ColumnDefinition -> List TableProperty -> List ColumnDefinition))
   (define (generate-cols col-specs tbl-specs)

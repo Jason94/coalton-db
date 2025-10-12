@@ -25,7 +25,7 @@
   (let result =
     (to-sql-test1 (CreateSchema simple-table)))
   (is-sql-eql (build-str "CREATE TABLE users ("
-                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                          " name TEXT NOT NULL,"
                          " age INTEGER NOT NULL"
                          ");")
@@ -36,7 +36,7 @@
   (let result =
     (to-sql-test1 (CreateSchema simple-table (IfNotExists))))
   (is-sql-eql (build-str "CREATE TABLE IF NOT EXISTS users ("
-                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                          " name TEXT NOT NULL,"
                          " age INTEGER NOT NULL"
                          ");")
@@ -73,7 +73,7 @@
   (let result =
     (to-sql-test1 (CreateSchema properties-table)))
   (is-sql-eql (build-str "CREATE TABLE users ("
-                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
                          " name TEXT UNIQUE NOT NULL,"
                          " age INTEGER"
                          ");")
