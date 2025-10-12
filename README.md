@@ -11,34 +11,41 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
 
 `coalton-db` is *very much* still in alpha status, if that, and is subject to frequent breaking changes. It's also not yet feature complete, and is missing several important features such as modeling relationships and transaction batching/rollback.
 
-### TODOs:
+### TODOs for 0.1 rewrite release:
 
  - [x] Add internal support for query parameterization, instead of hard-coding values
  - [x] Add tests!
  - [x] Add table constraints
+ - [x] Add AutoIncrement column property
+ - [ ] Add DEFAULT column property
+ - [ ] Add NewRow abstraction to properly handle autoincrement and default columns
+ - [ ] Add transaction support
+ - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
+ - [ ] Add query debugging
+ - [ ] Add documentation
+ - [ ] Flesh out readme
+ - [ ] Flesh out examples
+ 
+### TODOs for post-0.1 features:
+
  - [ ] Add CASE query support
  - [ ] Use CASE query for efficient UPDATE from query
    - See: https://dev.to/chidioguejiofor/scenario-1-making-updates-to-multiple-fields-56hl
  - [ ] Add OrderBy support
  - [ ] Add CompositeUnique table constraint
  - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
- - [ ] Add transaction support
  - [ ] Add In_ to RowCondition
  - [ ] Use In_ to implement delete-objs high-level api command
  - [ ] Add upsert support
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
- - [ ] Add DEFAULT column property
- - [ ] Add full DEFAULT support
  - [ ] Add CHECK column property
  - [ ] Add foreign key support
  - [ ] Add joins
  - [ ] Add relationships
  - [x] Improve the imperative interface
- - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
  - [ ] Add index support
  - [x] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
- - [ ] Add query debugging
  - [ ] Disconnect from the DB if the thread crashes (keep it from locking until restarting SLIME)
  
 ### TOMaybes:
