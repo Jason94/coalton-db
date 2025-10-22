@@ -51,6 +51,10 @@
 
    #:to-sql
 
+   #:begin-tx-query
+   #:rollback-tx-query
+   #:commit-tx-query
+
    ;;; Library Private
 
    #:col-clause-to-col-def-clause
@@ -576,3 +580,12 @@
                    tbl-props-sql
                    ");")
         (make-list))))))
+
+;;;
+;;; Transaction Queries
+;;;
+
+(coalton-toplevel
+  (define begin-tx-query "BEGIN;")
+  (define rollback-tx-query "ROLLBACK;")
+  (define commit-tx-query "COMMIT;"))

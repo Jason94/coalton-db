@@ -293,3 +293,39 @@
   (sq:disconnect-sqlite! cnxn)
   (is (== result
           (Ok (make-list user1-updated user2)))))
+
+;;;
+;;; Test Transactions
+;;;
+
+(define-test test-transaction-succeed ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (do-transaction
+                (insert-obj user1))
+              (select-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1))
+          result)))
+
+(define-test test-transaction-fail ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (do-transaction
+                (insert-obj user1)
+                (execute-query
+                 (Insert (IntoTable "users")
+                         (Values))))
+              (select-objs))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (the (List SimpleUser)
+                   (make-list)))
+          result)))

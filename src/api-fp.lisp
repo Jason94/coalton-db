@@ -27,6 +27,11 @@
    #:insert-obj
    #:insert-objs
    #:update-obj
+   #:begin-transaction
+   #:commit-transaction
+   #:rollback-transaction
+   #:with-transaction
+   #:do-transaction
    ))
 (cl:in-package :coalton-db/api-fp)
 
@@ -128,6 +133,33 @@
       ((None) (pure (Ok Unit)))
       ((Some qry)
        (execute-query qry))))
+
+  (declare begin-transaction (Monad :m => DBM :m (DbResult Unit)))
+  (define begin-transaction
+    (execute-query begin-tx-query))
+
+  (declare commit-transaction (Monad :m => DBM :m (DbResult Unit)))
+  (define commit-transaction
+    (execute-query commit-tx-query))
+
+  (declare rollback-transaction (Monad :m => DBM :m (DbResult Unit)))
+  (define rollback-transaction
+    (execute-query rollback-tx-query))
+
+  (declare with-transaction (Monad :m => DBM :m (DbResult :a) -> DBM :m (DbResult :a)))
+  (define (with-transaction op)
+    "Execute the given database operation inside of a transaction. If the operation returns an Err value,
+rollback the transaction and bubble the error. Otherwise, commit the transaction and return the Ok value of OP.
+If an intermediate query fails but the entire transaction returns an Ok value, it will commit!"
+    (do
+     begin-transaction
+     (result <- op)
+     (match result
+       ((Err _)
+        rollback-transaction)
+       ((Ok _)
+        commit-transaction))
+     (pure result)))
   )
 
 (cl:defmacro select-objs (cl:&optional where?)
@@ -141,3 +173,8 @@
                                      `(Some (make-list ,@where-cols))
                                      `None)))
     `(update-obj_ ,obj ,where-cols-clause)))
+
+(cl:defmacro do-transaction (cl:&body body)
+  `(with-transaction
+       (do
+        ,@body)))
