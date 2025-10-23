@@ -365,3 +365,37 @@
   (let users = (select-objs! cnxn))
   (is (== users
           (Ok (make-list user1-updated user2)))))
+
+;;;
+;;; Test Transactions
+;;;
+
+(define-test test-transaction-succeed ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let result =
+    (with-transaction cnxn
+      (insert-obj!# cnxn user1)
+      (select-objs! cnxn)))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1))
+          result)))
+
+(define-test test-transaction-fail ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let result =
+    (with-transaction cnxn
+      (insert-obj!# cnxn user1)
+      (execute-query!# cnxn
+       (Insert (IntoTable "users")
+               (Values)))
+      (select-objs! cnxn)))
+  (let users = (select-objs! cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (r:err? (the (DbResult (List SimpleUser))
+                   result)))
+  (is (== (the (DbResult (List SimpleUser)) users)
+          (Ok (make-list)))))

@@ -38,6 +38,11 @@
    #:insert-objs!#
    #:update-obj!
    #:update-obj!#
+
+   #:begin-transaction!
+   #:commit-transaction!
+   #:rollback-transaction!
+   #:with-transaction
    ))
 (cl:in-package :coalton-db/api-imp)
 
@@ -208,3 +213,33 @@
                                      `(Some (make-list ,@where-cols))
                                      `None)))
     `(update-obj!#_ ,cnxn ,obj ,where-cols-clause)))
+
+(coalton-toplevel
+  (declare begin-transaction! (DatabaseAdapter :d => :d -> DbResult Unit))
+  (define (begin-transaction! cnxn)
+    (execute-query! cnxn begin-tx-query))
+
+  (declare commit-transaction! (DatabaseAdapter :d => :d -> DbResult Unit))
+  (define (commit-transaction! cnxn)
+    (execute-query! cnxn commit-tx-query))
+
+  (declare rollback-transaction! (DatabaseAdapter :d => :d -> DbResult Unit))
+  (define (rollback-transaction! cnxn)
+    (execute-query! cnxn rollback-tx-query))
+  )
+
+(cl:defmacro with-transaction (cnxn cl:&body body)
+  "Run a transaction. If the body errors, rollback the transaction and
+return the exception. If the body succeeds, commit the transaction and
+return the value of the last transaction in the `body`."
+  (cl:let ((result-sym (cl:gensym "transaction-result")))
+    `(catch
+         (progn
+           (begin-transaction! ,cnxn)
+           (let ((,result-sym
+                   (progn
+                     ,@body)))
+             (commit-transaction! ,cnxn)
+             ,result-sym))
+       (_ (rollback-transaction! ,cnxn)
+          (Err (QueryError "Encountered a query error inside the transaction."))))))

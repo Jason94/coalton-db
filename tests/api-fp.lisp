@@ -306,8 +306,8 @@
              (do
               (execute-query (CreateSchema simple-user-table))
               (do-transaction
-                (insert-obj user1))
-              (select-objs))))
+                (insert-obj user1)
+                (select-objs)))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok (make-list user1))
           result)))
