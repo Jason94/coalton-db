@@ -19,7 +19,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [x] Add AutoIncrement column property
  - [ ] Add DEFAULT column property
  - [ ] Add NewRow abstraction to properly handle autoincrement and default columns
- - [ ] Add transaction support
+ - [x] Add transaction support
  - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
  - [ ] Add query debugging
  - [ ] Add documentation
