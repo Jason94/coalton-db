@@ -32,6 +32,8 @@
 
    #:PrimaryKey
    #:Unique
+   #:Default%
+   #:Default_
    #:Nullable
    #:AutoIncrement
 
@@ -166,11 +168,11 @@ a type that can be passed directly to a DB implementation as a bound value."
 
 (coalton-toplevel
 
-  (repr :enum)
   (derive Eq)
   (define-type ColumnProperty
     PrimaryKey
-    Unique)
+    Unique
+    (Default% SqlValue))
 
   (define-type GhostColumnProperty
     "Keywords used in the syntax, but not inserted as column propertiese into the
@@ -208,6 +210,9 @@ so we can't serialize it directly into the sql query string.")
     (tbl-name String)
     (col-specs (List ColumnDefinition))
     (tbl-props (List TableProperty))))
+
+(cl:defmacro Default_ (val)
+  `(Default% (into ,val)))
 
 ;;;
 ;;; Database Adapter

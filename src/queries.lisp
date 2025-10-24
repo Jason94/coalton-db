@@ -416,34 +416,52 @@
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
        (Tuple (build-str "NOT " cnd-sql) cnd-params))))
 
-  (declare col-def-to-sql (DatabaseAdapter :d => ty:Proxy :d -> ColumnDefinition -> String))
-  (define (col-def-to-sql db-prx col-def)
+  (declare col-def-to-sql (DatabaseAdapter :d => ty:Proxy :d -> c:Cell (Optional String) -> ColumnDefinition
+                                           -> (Tuple String (List SqlValue))))
+  (define (col-def-to-sql db-prx last-param-str col-def)
     (let type-sql = (match (.col-type col-def)
                       ((IntType) "INTEGER")
                       ((TextType) "TEXT")
                       ((BoolType) "BOOLEAN")))
-    (let prop-to-sql = (fn (prop)
-                         (match prop
-                           ((PrimaryKey)
-                            (if (.auto-increment? col-def)
-                                (progn
-                                  (let (AutoIncrementSyntax left-clause right-clause) =
-                                    (auto-increment-syntax db-prx))
-                                  (build-str
-                                   (right-pad left-clause)
-                                   "PRIMARY KEY"
-                                   (left-pad right-clause)))
-                                "PRIMARY KEY"))
-                           ((Unique) "UNIQUE"))))
-    (let props-sql =
-      (join-str " " (map prop-to-sql (.properties col-def))))
-    (let props-pad = (if (== props-sql "")
-                         ""
-                         " "))
+    (let params = (c:new Nil))
+    (let pkey-sql = (c:new ""))
+    (let unique-sql = (c:new ""))
+    (let default-sql = (c:new ""))
+    (for prop in (.properties col-def)
+      (match prop
+        ((PrimaryKey)
+         (c:write! pkey-sql
+                   (if (.auto-increment? col-def)
+                       (progn
+                         (let (AutoIncrementSyntax left-clause right-clause) =
+                           (auto-increment-syntax db-prx))
+                         (build-str
+                          (right-pad left-clause)
+                          "PRIMARY KEY"
+                          (left-pad right-clause)))
+                       "PRIMARY KEY"))
+         Unit)
+        ((Unique)
+         (c:write! unique-sql "UNIQUE")
+         Unit)
+        ((Default% val)
+         (c:write!
+          default-sql
+          (build-str "DEFAULT " (get-next-placeholder! db-prx last-param-str)))
+         (c:push! params val)
+         Unit)))
     (let nullable-sql = (if (.nullable? col-def)
                             ""
                             " NOT NULL"))
-    (build-str " " (.col-name col-def) " " type-sql props-pad props-sql nullable-sql))
+    (let props-sql =
+      (build-str
+       (c:read pkey-sql)
+       (left-pad (c:read unique-sql))
+       nullable-sql
+       (left-pad (c:read default-sql))))
+    (Tuple
+     (build-str " " (.col-name col-def) " " type-sql (left-pad props-sql))
+     (c:read params)))
 
   (declare create-table-opt-to-sql (CreateTableOption -> String))
   (define (create-table-opt-to-sql opt)
@@ -564,7 +582,16 @@
         (build-str "DROP TABLE " opt-sql tbl ";")
         (make-list)))
       ((CreateTable% tbl-name create-table-opts col-defs tbl-props)
-       (let col-defs-sql = (join-str ", " (map (col-def-to-sql db-adptr-proxy) col-defs)))
+       (let (Tuple col-defs-sql-parts col-defs-params) =
+         (fold
+          (fn ((Tuple accum-sql accum-params)
+               (Tuple new-sql new-params))
+            (Tuple
+             (cons new-sql accum-sql)
+             (<> accum-params new-params)))
+          (Tuple Nil Nil)
+          (map (col-def-to-sql db-adptr-proxy last-param-str) col-defs)))
+       (let col-defs-sql = (join-str ", " (reverse col-defs-sql-parts)))
        (let tbl-props-sql =
          (if (== Nil tbl-props)
              ""
@@ -579,7 +606,7 @@
                    col-defs-sql
                    tbl-props-sql
                    ");")
-        (make-list))))))
+        col-defs-params)))))
 
 ;;;
 ;;; Transaction Queries

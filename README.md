@@ -13,15 +13,19 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
 
 ### TODOs for 0.1 rewrite release:
 
+ - [x] Improve the imperative interface
+ - [x] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
  - [x] Add internal support for query parameterization, instead of hard-coding values
  - [x] Add tests!
  - [x] Add table constraints
  - [x] Add AutoIncrement column property
- - [ ] Add DEFAULT column property
+ - [x] Add DEFAULT column property
  - [ ] Add NewRow abstraction to properly handle autoincrement and default columns
  - [x] Add transaction support
+ - [ ] Add select-returning support, including NewRow
  - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
  - [ ] Add query debugging
+ - [ ] Add model macro
  - [ ] Add documentation
  - [ ] Flesh out readme
  - [ ] Flesh out examples
@@ -32,20 +36,19 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Use CASE query for efficient UPDATE from query
    - See: https://dev.to/chidioguejiofor/scenario-1-making-updates-to-multiple-fields-56hl
  - [ ] Add OrderBy support
- - [ ] Add CompositeUnique table constraint
+ - [x] Add CompositeUnique table constraint
  - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
  - [ ] Add In_ to RowCondition
  - [ ] Use In_ to implement delete-objs high-level api command
  - [ ] Add upsert support
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
+ - [ ] Add remaining DEFAULT options support
  - [ ] Add CHECK column property
  - [ ] Add foreign key support
  - [ ] Add joins
  - [ ] Add relationships
- - [x] Improve the imperative interface
  - [ ] Add index support
- - [x] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
  - [ ] Disconnect from the DB if the thread crashes (keep it from locking until restarting SLIME)
  
 ### TOMaybes:

@@ -467,3 +467,16 @@
                          ");")
               ()
               result))
+
+(define-test test-create-table-default-value ()
+  (let result =
+    (to-sql-test1
+     (CreateTable "test-table" ()
+                  (("id" IntType PrimaryKey)
+                   ("score" IntType (Default_ 10))))))
+  (is-sql-eql (build-str "CREATE TABLE test-table ("
+                         " id INTEGER PRIMARY KEY NOT NULL,"
+                         " score INTEGER NOT NULL DEFAULT ?"
+                         ");")
+              ((SqlInt 10))
+              result))
