@@ -22,7 +22,7 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [x] Add DEFAULT column property
  - [ ] Add NewRow abstraction to properly handle autoincrement and default columns
  - [x] Add transaction support
- - [ ] Add select-returning support, including NewRow
+ - [ ] Add insert-returning support, including NewRow
  - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
  - [ ] Add query debugging
  - [ ] Add model macro
@@ -43,7 +43,6 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
  - [ ] Add upsert support
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
- - [ ] Add remaining DEFAULT options support
  - [ ] Add CHECK column property
  - [ ] Add foreign key support
  - [ ] Add joins

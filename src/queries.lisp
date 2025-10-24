@@ -439,17 +439,14 @@
                           (right-pad left-clause)
                           "PRIMARY KEY"
                           (left-pad right-clause)))
-                       "PRIMARY KEY"))
-         Unit)
+                       "PRIMARY KEY")))
         ((Unique)
-         (c:write! unique-sql "UNIQUE")
-         Unit)
+         (c:write! unique-sql "UNIQUE"))
         ((Default% val)
+         (c:push! params val)
          (c:write!
           default-sql
-          (build-str "DEFAULT " (get-next-placeholder! db-prx last-param-str)))
-         (c:push! params val)
-         Unit)))
+          (build-str "DEFAULT " (get-next-placeholder! db-prx last-param-str))))))
     (let nullable-sql = (if (.nullable? col-def)
                             ""
                             " NOT NULL"))
