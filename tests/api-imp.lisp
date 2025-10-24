@@ -314,6 +314,40 @@
   (is (== users
           (Ok (make-list user1 user2)))))
 
+(define-test test-insert-returning-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-obj-returning! cnxn user1))
+  (is (== insert-result
+          (Ok user1))))
+
+(define-test test-insert-returning-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-obj-returning!# cnxn user1))
+  (is (== insert-result
+          user1)))
+
+(define-test test-insert-returning-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Alice" True))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-objs-returning! cnxn (make-list user1 user2)))
+  (is (== insert-result
+          (Ok (make-list user1 user2)))))
+
+(define-test test-insert-returning-objs-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Alice" True))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-objs-returning!# cnxn (make-list user1 user2)))
+  (is (== insert-result
+          (make-list user1 user2))))
+
 (define-test test-update-obj ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user1 = (SimpleUser "Steve" False))

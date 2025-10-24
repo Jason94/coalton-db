@@ -259,6 +259,31 @@
   (is (== result
           (Ok (make-list user user2)))))
 
+(define-test test-insert-obj-returning ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (insert-obj-returning user))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (Ok user))))
+
+(define-test test-insert-objs-returning ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (let result =
+    (run-db! cnxn
+             (do
+              (execute-query (CreateSchema simple-user-table))
+              (insert-objs-returning (make-list user user2)))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== result
+          (Ok (make-list user user2)))))
+
 (define-test test-update-obj ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let user1 = (SimpleUser "Steve" False))

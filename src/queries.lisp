@@ -64,6 +64,7 @@
    #:CreateTableOption
    #:QueryOption
    #:LiteralColumn%
+   #:ReturningStatement
    #:unwrap-col-name
    #:SetTarget
    #:Update%

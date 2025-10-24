@@ -103,26 +103,44 @@ the column with the given name, if any."
     (Delete (From (tbl-name-for-obj obj))
             (Where (pkey-cnd-for obj))))
 
-  (declare insert-obj-query (Persistable :p => :p -> Query))
-  (define (insert-obj-query obj)
-    (Insert (IntoTable (tbl-name-for-obj obj))
-            (sql-vals-for obj)
-            ;; NOTE: Maybe using the col-names isn't necessary?
-            (map LiteralColumn% (col-names-for obj))))
+  (declare insert-obj-query (Persistable :p => :p -> Optional ReturningStatement -> Query))
+  (define (insert-obj-query obj rtrn-stmt?)
+    ;; TODO: Refactor this somehow
+    (match rtrn-stmt?
+      ((None)
+       (Insert (IntoTable (tbl-name-for-obj obj))
+               (sql-vals-for obj)
+               ;; NOTE: Maybe using the col-names isn't necessary?
+               (map LiteralColumn% (col-names-for obj))))
+      ((Some rtrn-stmt)
+       (Insert (IntoTable (tbl-name-for-obj obj))
+               (sql-vals-for obj)
+               ;; NOTE: Maybe using the col-names isn't necessary?
+               (map LiteralColumn% (col-names-for obj))
+               rtrn-stmt))))
 
-  (declare insert-objs-query (Persistable :p => List :p -> Optional Query))
-  (define (insert-objs-query objs)
+  (declare insert-objs-query (Persistable :p => List :p -> Optional ReturningStatement -> Optional Query))
+  (define (insert-objs-query objs rtrn-stmt?)
     "Generate a query to insert `objs`. If empty, returns `None`."
+    ;; TODO: Refactor this somehow
     (match objs
       ((Nil) None)
       ((Cons fst _)
        (let cols = (map LiteralColumn% (col-names-for fst)))
        (let vals = (the (List SqlValue)
                         (>>= objs sql-vals-for)))
-       (Some
-        (Insert (IntoTable (tbl-name-for-obj fst))
-                vals
-                cols)))))
+       (match rtrn-stmt?
+         ((None)
+          (Some
+           (Insert (IntoTable (tbl-name-for-obj fst))
+                   vals
+                   cols)))
+         ((Some rtrn-stmt)
+          (Some
+           (Insert (IntoTable (tbl-name-for-obj fst))
+                   vals
+                   cols
+                   rtrn-stmt)))))))
 
   (declare update-col-err (Persistable :p => :p -> String -> String))
   (define (update-col-err obj col-name)

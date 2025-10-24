@@ -36,6 +36,10 @@
    #:insert-obj!#
    #:insert-objs!
    #:insert-objs!#
+   #:insert-obj-returning!
+   #:insert-obj-returning!#
+   #:insert-objs-returning!
+   #:insert-objs-returning!#
    #:update-obj!
    #:update-obj!#
 
@@ -106,12 +110,13 @@
   (declare query-row!# ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
                         :d -> :q -> :p))
   (define (query-row!# cnxn qry)
-    (r:ok-or-error (query-row! cnxn qry)))
+    (r:ok-or-error (query-row! cnxn qry))))
 
-  ;;;
-  ;;; FRM Query Ops
-  ;;;
+;;;
+;;; FRM Query Ops
+;;;
 
+(coalton-toplevel
   (declare select-objs!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult (List :p)))
   (define (select-objs!_ cnxn opt?)
     (let prx-rst = ty:Proxy)
@@ -160,7 +165,7 @@
 
   (declare insert-obj! ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> DbResult Unit))
   (define (insert-obj! cnxn obj)
-    (execute-query! cnxn (insert-obj-query obj)))
+    (execute-query! cnxn (insert-obj-query obj None)))
 
   (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Unit))
   (define (insert-obj!# cnxn obj)
@@ -168,7 +173,7 @@
 
   (declare insert-objs! ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> DbResult Unit))
   (define (insert-objs! cnxn objs)
-    (match (insert-objs-query objs)
+    (match (insert-objs-query objs None)
       ((None) (pure Unit))
       ((Some qry)
        (execute-query! cnxn qry))))
@@ -176,6 +181,29 @@
   (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> Unit))
   (define (insert-objs!# cnxn objs)
     (r:ok-or-error (insert-objs! cnxn objs)))
+
+  (declare insert-obj-returning! ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) => :d -> :p -> DbResult :r))
+  (define (insert-obj-returning! cnxn obj)
+    (let qry = (insert-obj-query obj (Some (Returning AllCols))))
+    (query-row! cnxn qry))
+
+  (declare insert-obj-returning!# ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) => :d -> :p -> :r))
+  (define (insert-obj-returning!# cnxn obj)
+    (r:ok-or-error (insert-obj-returning! cnxn obj)))
+
+  (declare insert-objs-returning! ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) =>
+                                   :d -> List :p -> DbResult (List :r)))
+  (define (insert-objs-returning! cnxn objs)
+    (let qry? = (insert-objs-query objs (Some (Returning AllCols))))
+    (match qry?
+      ((None) (pure Nil))
+      ((Some qry)
+       (query-rows! cnxn qry))))
+
+  (declare insert-objs-returning!# ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) =>
+                                    :d -> List :p -> List :r))
+  (define (insert-objs-returning!# cnxn objs)
+    (r:ok-or-error (insert-objs-returning! cnxn objs)))
 
   (declare update-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> DbResult Unit))
   (define (update-obj!_ cnxn obj where-cols?)
@@ -213,6 +241,10 @@
                                      `(Some (make-list ,@where-cols))
                                      `None)))
     `(update-obj!#_ ,cnxn ,obj ,where-cols-clause)))
+
+;;;
+;;; Transaction Support
+;;;
 
 (coalton-toplevel
   (declare begin-transaction! (DatabaseAdapter :d => :d -> DbResult Unit))

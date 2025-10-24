@@ -26,6 +26,8 @@
    #:delete-obj
    #:insert-obj
    #:insert-objs
+   #:insert-obj-returning
+   #:insert-objs-returning
    #:update-obj
    #:begin-transaction
    #:commit-transaction
@@ -118,14 +120,28 @@
 
   (declare insert-obj ((Monad :m) (Persistable :p) => :p -> DBM :m (DbResult Unit)))
   (define (insert-obj obj)
-    (execute-query (insert-obj-query obj)))
+    (execute-query (insert-obj-query obj None)))
 
   (declare insert-objs ((Monad :m) (Persistable :p) => List :p -> DBM :m (DbResult Unit)))
   (define (insert-objs objs)
-    (match (insert-objs-query objs)
+    (match (insert-objs-query objs None)
       ((None) (pure (Ok Unit)))
       ((Some qry)
        (execute-query qry))))
+
+  (declare insert-obj-returning ((Monad :m) (Persistable :p) (ParseSqlRow :r) =>
+                                 :p -> DBM :m (DbResult :r)))
+  (define (insert-obj-returning obj)
+    (let qry = (insert-obj-query obj (Some (Returning AllCols))))
+    (query-row qry))
+
+  (declare insert-objs-returning ((Monad :m) (Persistable :p) (ParseSqlRow :r) =>
+                                  List :p -> DBM :m (DbResult (List :r))))
+  (define (insert-objs-returning objs)
+    (match (insert-objs-query objs (Some (Returning AllCols)))
+      ((None) (pure (Ok Nil)))
+      ((Some qry)
+       (query-rows qry))))
 
   (declare update-obj_ ((Monad :m) (Persistable :p) => :p -> Optional (List String) -> DBM :m (DbResult Unit)))
   (define (update-obj_ obj cols)
