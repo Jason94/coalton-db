@@ -298,6 +298,42 @@
               result))
 
 ;;;
+;;; INSERT RETURNING Tests
+;;;
+
+(define-test test-insert-returning-all ()
+  (let result = (to-sql-test1
+                 (Insert (IntoTable "test-table")
+                         (Values "Alice")
+                         (Cols "name")
+                         (Returning AllCols))))
+  (is-sql-eql "INSERT INTO test-table (name) VALUES (?) RETURNING *;"
+              ((SqlText "Alice"))
+              result))
+
+(define-test test-insert-returning-cols ()
+  (let result = (to-sql-test1
+                 (Insert (IntoTable "test-table")
+                         (Values "Alice")
+                         (Cols "name")
+                         (Returning (Cols "id" "name")))))
+  (is-sql-eql "INSERT INTO test-table (name) VALUES (?) RETURNING id, name;"
+              ((SqlText "Alice"))
+              result))
+
+;; NOTE: This is probably not ever going to be a practical use-case,
+;; but it technically needs to be supported. *shrug*
+(define-test test-insert-returning-vals ()
+  (let result = (to-sql-test1
+                 (Insert (IntoTable "test-table")
+                         (Values "Alice")
+                         (Cols "name")
+                         (Returning (Values 10 "test")))))
+  (is-sql-eql "INSERT INTO test-table (name) VALUES (?) RETURNING ?, ?;"
+              ((SqlText "Alice") (SqlInt 10) (SqlText "test"))
+              result))
+
+;;;
 ;;; UPDATE Tests
 ;;;
 

@@ -42,6 +42,7 @@
    #:Delete
    #:Insert
    #:IntoTable
+   #:Returning
    #:Update
    #:DropTable
    #:IfExists
@@ -215,6 +216,10 @@
   (define (into-stmt->tbl-name (IntoTable tbl-name))
     tbl-name)
 
+  (repr :transparent)
+  (define-type ReturningStatement
+    (Returning% SelectTarget))
+
   ;;;
   ;;; UPDATE Syntax
   ;;;
@@ -251,7 +256,7 @@
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))
-    (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)))
+    (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)) (Optional ReturningStatement))
     (Update% SqlTable (List SetTarget) (Optional QueryOption))
     (DropTable% SqlTable (Optional DropOption))
     (CreateTable% String (List CreateTableOption) (List ColumnDefinition) (List TableProperty))))
@@ -277,12 +282,18 @@
                            `None)))
     `(Delete% ,from ,opts-clause)))
 
-(cl:defmacro Insert (into-stmt values cl:&optional cols)
+(cl:defmacro Returning (select-target)
+  `(Returning% (into ,select-target)))
+
+(cl:defmacro Insert (into-stmt values cl:&optional cols returning-stmt)
   "Insert values into the given table in a SQL query."
   (cl:let ((cols-clause (cl:if cols
                                `(Some ,cols)
-                               `None)))
-    `(Insert% ,into-stmt (to-row ,values) ,cols-clause)))
+                               `None))
+           (returning-clause (cl:if returning-stmt
+                                    `(Some ,returning-stmt)
+                                    `None)))
+    `(Insert% ,into-stmt (to-row ,values) ,cols-clause ,returning-clause)))
 
 (cl:defmacro Update (tbl set-tuples cl:&rest query-opts)
   "Update values in the given table in a SQL query."
@@ -471,6 +482,24 @@
       ((CompositePrimaryKey% tables)
        (build-str "PRIMARY KEY (" (join-str ", " tables) ")"))))
 
+  (declare select-tgt->sql (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) ->
+                                            SelectTarget -> (Tuple String (List SqlValue))))
+  (define (select-tgt->sql db-prx last-param-str select-stmt)
+    (let (Tuple select-stmt-sql select-stmt-vals) =
+      (match select-stmt
+        ((Values% vals)
+         (let placeholders =
+           (join-str ", " (map (fn (_) (get-next-placeholder! db-prx last-param-str))
+                               vals)))
+         (Tuple placeholders vals))
+        ((AllCols)
+         (Tuple "*" Nil))
+        ((Cols% cols)
+         (Tuple (join-str ", " (map col-to-sql cols))
+                Nil))))
+    (Tuple select-stmt-sql
+           select-stmt-vals))
+
   (declare insert-into-values-sql (DatabaseAdapter :a => List SqlValue -> Optional (List SqlColumn)
                                                    -> ty:Proxy :a -> c:Cell (Optional String) -> String))
   (define (insert-into-values-sql vals cols? db-prx last-param-str)
@@ -518,18 +547,7 @@
     (match qry
       ((Select% select-target from-qry query-opts)
        (let (Tuple select-sql select-params) =
-         (match select-target
-           ((Values% vals)
-            (let placeholders = (join-str ", " (map (fn (_) (get-next-placeholder! db-adptr-proxy last-param-str))
-                                                    vals)))
-            (let select-sql = (build-str "SELECT " placeholders))
-            (Tuple select-sql vals))
-           ((AllCols)
-            (Tuple "SELECT *" (make-list)))
-           ((Cols% cols)
-            (Tuple (build-str "SELECT "
-                              (join-str ", " (map col-to-sql cols)))
-                   (make-list)))))
+         (select-tgt->sql db-adptr-proxy last-param-str select-target))
        (let from-sql =
          (match from-qry
            ((Some from-table)
@@ -538,14 +556,14 @@
             "")))
        (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
-        (build-str select-sql from-sql opts-sql ";")
+        (build-str "SELECT " select-sql from-sql opts-sql ";")
         (<> select-params opts-params)))
       ((Delete% from-qry query-opts)
        (let (Tuple opts-sql opts-params) = (query-opts-to-sql query-opts))
        (SqlQuery
         (build-str "DELETE FROM " from-qry opts-sql ";")
         opts-params))
-      ((Insert% into-stmt insert-vals cols?)
+      ((Insert% into-stmt insert-vals cols? returning?)
        (let vals-sql = (insert-into-values-sql insert-vals cols? db-adptr-proxy last-param-str))
        (let cols-sql =
          (match cols?
@@ -554,11 +572,21 @@
             (build-str " ("
                        (join-str ", " (map col-to-sql cols))
                        ") "))))
+       (let (Tuple returning-sql returning-vals) =
+         (match returning?
+           ((None) (Tuple "" Nil))
+           ((Some (Returning% select-stmt))
+            (let (Tuple select-stmt-sql select-stmt-vals) =
+              (select-tgt->sql db-adptr-proxy last-param-str select-stmt))
+            (Tuple (build-str " RETURNING " select-stmt-sql)
+                   select-stmt-vals))))
        (let insert-sql = (build-str "INSERT INTO "
                                     (into-stmt->tbl-name into-stmt)
                                     cols-sql
-                                    " " vals-sql ";"))
-       (SqlQuery insert-sql insert-vals))
+                                    " " vals-sql
+                                    returning-sql
+                                    ";"))
+       (SqlQuery insert-sql (<> insert-vals returning-vals)))
       ((Update% tbl set-targets query-opts)
        (let set-sqls =
          (map (fn ((SetTarget col _))
