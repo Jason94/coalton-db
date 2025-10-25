@@ -217,6 +217,10 @@
   (define (into-stmt->tbl-name (IntoTable tbl-name))
     tbl-name)
 
+  (define-type InsertValue
+    (InsertSqlValue SqlValue)
+    InsertDefault)
+
   (repr :transparent)
   (define-type ReturningStatement
     (Returning% SelectTarget))
@@ -257,7 +261,7 @@
     "Representation of a SQL query."
     (Select% SelectTarget (Optional FromStatement) (Optional QueryOption))
     (Delete% FromStatement (Optional QueryOption))
-    (Insert% IntoStatement (List SqlValue) (Optional (List SqlColumn)) (Optional ReturningStatement))
+    (Insert% IntoStatement (List InsertValue) (Optional (List SqlColumn)) (Optional ReturningStatement))
     (Update% SqlTable (List SetTarget) (Optional QueryOption))
     (DropTable% SqlTable (Optional DropOption))
     (CreateTable% String (List CreateTableOption) (List ColumnDefinition) (List TableProperty))))
@@ -501,7 +505,16 @@
     (Tuple select-stmt-sql
            select-stmt-vals))
 
-  (declare insert-into-values-sql (DatabaseAdapter :a => List SqlValue -> Optional (List SqlColumn)
+  (declare insert-value->sql (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) ->
+                                              InsertValue -> Tuple String (Optional SqlValue)))
+  (define (insert-value->sql db-prx last-param-str val)
+    (match val
+      ((InsertSqlValue sql-val)
+       (Tuple (get-next-placeholder! db-prx last-param-str) (Some sql-val)))
+      ((InsertDefault)
+       (Tuple "DEFAULT" None))))
+
+  (declare insert-into-values-sql (DatabaseAdapter :a => List InsertValue -> Optional (List SqlColumn)
                                                    -> ty:Proxy :a -> c:Cell (Optional String) -> String))
   (define (insert-into-values-sql vals cols? db-prx last-param-str)
     (let convert-chunk =

@@ -297,6 +297,10 @@
               (1 "Alice" 2 "Steve")
               result))
 
+(define-test test-insert-default-vals ()
+  (let result = (to-sql-test1
+                 (Insert )
+
 ;;;
 ;;; INSERT RETURNING Tests
 ;;;

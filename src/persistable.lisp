@@ -16,6 +16,10 @@
    )
   (:export
    ;;; Library Public
+   #:Defaultable
+   #:DefaultVal
+   #:CustomVal
+
    #:Persistable
    #:schema-for
    #:prop-for-col
@@ -36,6 +40,15 @@
 (in-package :coalton-db/persistable)
 
 (named-readtables:in-readtable coalton:coalton)
+
+(coalton-toplevel
+  (derive Eq)
+  (define-type (Defaultable :a)
+    DefaultVal
+    (CustomVal :a))
+
+  ;; (define-instance (Into :a SqlValue => Into (Defaultable :a) SqlValue)
+  )
 
 (coalton-toplevel
   (define-class (ParseSqlRow :a => Persistable :a)
