@@ -10,7 +10,10 @@
    #:coalton-db/queries
    #:coalton-db/db-m
    #:coalton-db/api-fp
-   #:coalton-db/sqlite)
+   #:coalton-db/sqlite
+   #:coalton-library/experimental/do-control-core
+   #:coalton-library/experimental/do-control-loops
+   )
   (:local-nicknames
    (:u #:simple-io/unique)
    (:s #:coalton-library/string)))
@@ -52,32 +55,29 @@
 
   (declare insert-tables (Unit -> DBM IO Unit))
   (define (insert-tables)
-    (do
+    (do-loop-while
      (write-line "Name? (Required)")
      (name <- read-line)
      (write-line "Age? (Optional)")
      (age <- (map parse-age read-line))
-     (match age
+     (do-match age
        ((Err e)
         (write-line e))
        ((Ok age)
-        (do
-         (id <- (map u:to-int u:new-unique))
-         (result <- (execute-query
-                     (Insert (IntoTable "users")
-                             (Values id name age)
-                             (Cols "id" "name" "age"))))
-         (match result
-           ((Err e)
-            (write-line (<> "Error saving user: "
-                            (force-string e))))
-           ((Ok _)
-            (write-line "Successfully saved user in the database."))))))
+        (id <- (map u:to-int u:new-unique))
+        (result <- (execute-query
+                    (Insert (IntoTable "users")
+                            (Values id name age)
+                            (Cols "id" "name" "age"))))
+        (match result
+          ((Err e)
+           (write-line (<> "Error saving user: "
+                           (force-string e))))
+          ((Ok _)
+           (write-line "Successfully saved user in the database.")))))
      (write-line "Continue? (Y/N)")
-     (continue <- (map (== "Y") read-line))
-     (if continue
-         (insert-tables)
-         (pure Unit))))
+     (input <- read-line)
+     (pure (== "Y" input))))
 
   (declare get-tables (DBM IO (DbResult (List Row))))
   (define get-tables
@@ -93,18 +93,14 @@
        (execute-query create-user-table)
        (insert-tables)
        (result <- get-tables)
-       (match result
+       (do-match result
          ((Err e)
           (write-line (<> "Error getting tables: "
                           (force-string e))))
          ((Ok tables)
-          (do
-           (write-line "Tables:")
-           (lift
-            (traverse
-             (compose write-line force-string)
-             tables))
-           (pure Unit))))))
+          (write-line "Tables:")
+          (do-foreach-io (t tables)
+            (write-line (force-string t)))))))
       (wrap-io (disconnect-sqlite! cnxn)))))
 
 (cl:defun run-main ()

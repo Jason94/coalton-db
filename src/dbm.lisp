@@ -13,6 +13,7 @@
    (:env #:coalton-library/monad/environment)
    (:st #:coalton-library/monad/stateT)
    (:ty #:coalton-library/types)
+   (:io #:simple-io/io)
    (:io-t #:simple-io/term)
    (:io-u #:simple-io/unique))
   (:export
@@ -92,4 +93,5 @@
   (define-instance (io-u:MonadIoUnique :m => io-u:MonadIoUnique (DBM :m))
     (define io-u:new-unique (lift io-u:new-unique)))
 
+  (io:derive-monad-io :m (DBM :m))
   (io-t:derive-monad-io-term (DBM :m)))
