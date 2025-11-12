@@ -299,7 +299,12 @@
 
 (define-test test-insert-default-vals ()
   (let result = (to-sql-test1
-                 (Insert )
+                 (Insert (IntoTable "test-table")
+                         (InsertValues DefaultVal "Alice")
+                         (Cols "id" "name"))))
+  (is-sql-eql "INSERT INTO test-table (id, name) VALUES (DEFAULT, ?);"
+              ("Alice")
+              result))
 
 ;;;
 ;;; INSERT RETURNING Tests

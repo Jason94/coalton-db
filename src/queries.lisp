@@ -43,6 +43,10 @@
    #:Insert
    #:IntoTable
    #:Returning
+   #:InsertValue
+   #:InsertSqlValue
+   #:InsertDefault
+   #:InsertValues
    #:Update
    #:DropTable
    #:IfExists
@@ -221,6 +225,36 @@
     (InsertSqlValue SqlValue)
     InsertDefault)
 
+  (define-instance (Into (Defaultable SqlValue) InsertValue)
+    (inline)
+    (define (into val?)
+      (match val?
+        ((DefaultVal)
+         InsertDefault)
+        ((CustomVal val)
+         (InsertSqlValue val)))))
+
+  (define-instance (Into :a SqlValue => Into :a InsertValue)
+    (inline)
+    (define (into val)
+      (InsertSqlValue (into val))))
+
+  (define-instance (Into (List SqlValue) (List InsertValue))
+    (inline)
+    (define (into vals)
+      (map InsertSqlValue vals)))
+
+  (declare non-default-insert-vals (List InsertValue -> List SqlValue))
+  (define (non-default-insert-vals lst)
+    (rec % ((rem lst)
+            (res Nil))
+      (match rem
+        ((Nil) (reverse res))
+        ((Cons (InsertDefault) rem_)
+         (% rem_ res))
+        ((Cons (InsertSqlValue val) rem_)
+         (% rem_ (Cons val res))))))
+
   (repr :transparent)
   (define-type ReturningStatement
     (Returning% SelectTarget))
@@ -298,7 +332,13 @@
            (returning-clause (cl:if returning-stmt
                                     `(Some ,returning-stmt)
                                     `None)))
-    `(Insert% ,into-stmt (to-row ,values) ,cols-clause ,returning-clause)))
+    `(Insert% ,into-stmt (into ,values) ,cols-clause ,returning-clause)))
+
+(cl:defmacro InsertValues (cl:&rest vals)
+  `(make-list
+    ,@(cl:mapcar (cl:lambda (stmt)
+                   `(the InsertValue (into ,stmt)))
+                 vals)))
 
 (cl:defmacro Update (tbl set-tuples cl:&rest query-opts)
   "Update values in the given table in a SQL query."
@@ -600,7 +640,7 @@
                                     " " vals-sql
                                     returning-sql
                                     ";"))
-       (SqlQuery insert-sql (<> insert-vals returning-vals)))
+       (SqlQuery insert-sql (<> (non-default-insert-vals insert-vals) returning-vals)))
       ((Update% tbl set-targets query-opts)
        (let set-sqls =
          (map (fn ((SetTarget col _))

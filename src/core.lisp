@@ -22,6 +22,10 @@
    #:Values
    #:Row
 
+   #:Defaultable
+   #:DefaultVal
+   #:CustomVal
+
    #:DbError
    #:QueryConstructionError
    #:QueryError
@@ -129,6 +133,19 @@ a type that can be passed directly to a DB implementation as a bound value."
     ((cl:typep raw-val 'cl:string)
      (SqlText raw-val))
     (cl:t (cl:error (cl:format cl:nil "Unknown SQL type: ~a" raw-val)))))
+
+;;;
+;;; Default Values
+;;;
+
+(coalton-toplevel
+
+  (derive Eq)
+  (define-type (Defaultable :a)
+    DefaultVal
+    (CustomVal :a))
+
+  )
 
 ;;;
 ;;; Universal error type
