@@ -9,7 +9,7 @@
                "sqlite"
                "coalton"
                ;; Just requiring to wrap DBM monad transf. instances
-               "coalton-simple-io")
+               "coalton-io")
   :components ((:module "src"
                 :serial t
                 :components
