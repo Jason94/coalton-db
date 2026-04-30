@@ -72,9 +72,8 @@
 (define-test test-execute-query-unsafe ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let qry = (DropTable "test" IfExists))
-  (let result = (execute-query!# cnxn qry))
-  (sq:disconnect-sqlite! cnxn)
-  (is (== (values) result)))
+  (execute-query!# cnxn qry)
+  (sq:disconnect-sqlite! cnxn))
 
 (define-test test-query-sql-row ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
@@ -127,7 +126,7 @@
   (declare setup-users (DatabaseAdapter :d => :d * List SimpleUser -> Void))
   (define (setup-users cnxn users)
     (execute-query!# cnxn (CreateSchema simple-user-table))
-    (for user in users
+    (foreach (user users)
       (execute-query!# cnxn (Insert (IntoTable "users")
                                     (to-row user))))))
 
