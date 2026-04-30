@@ -53,7 +53,7 @@
           ((None)
            (Err "Could not parse age.")))))
 
-  (declare insert-tables (Unit -> DBM IO Unit))
+  (declare insert-tables (Void -> DBM IO Unit))
   (define (insert-tables)
     (do-loop-while
      (write-line "Name? (Required)")

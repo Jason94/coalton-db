@@ -64,12 +64,12 @@
     (l:null? (it:collect! (it:into-iter m))))
 
   (declare newline String)
-  (define newline (lisp String () (cl:format nil "~%")))
+  (define newline (lisp (-> String) () (cl:format nil "~%")))
 
   (declare to-string (Into :a String => :a -> String))
   (define to-string into)
 
-  (declare join-str (String -> List String -> String))
+  (declare join-str (String * List String -> String))
   (define (join-str sep strs)
     (match (length strs)
       (0 "")
@@ -80,7 +80,7 @@
              (l:car strs)
              (l:cdr strs)))))
 
-  (declare from-opt (:a -> Optional :a -> :a))
+  (declare from-opt (:a * Optional :a -> :a))
   (define (from-opt def opt)
     (match opt
       ((Some a) a)

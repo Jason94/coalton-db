@@ -26,14 +26,14 @@
 
   (declare connect-sqlite! (String -> SqliteConnection))
   (define (connect-sqlite! connection-spec)
-    (lisp :a (connection-spec)
+    (lisp (-> :a) (connection-spec)
       (sl:connect connection-spec)))
 
-  (declare disconnect-sqlite! (SqliteConnection -> Unit))
+  (declare disconnect-sqlite! (SqliteConnection -> Void))
   (define (disconnect-sqlite! connection)
-    (lisp :a (connection)
+    (lisp (-> :a) (connection)
       (sl:disconnect connection))
-    Unit)
+    (values))
 
   (declare norm-sqlite-types (SqlValue -> SqlValue))
   (define (norm-sqlite-types val)
@@ -51,7 +51,7 @@
       (AutoIncrementSyntax "" "AUTOINCREMENT"))
     (define (run-query! cnxn (SqlQuery sql params))
       (let normed-params = (map norm-sqlite-types params))
-      (lisp :x (cnxn sql normed-params)
+      (lisp (-> :x) (cnxn sql normed-params)
         (cl:handler-case
             (cl:let* ((unwrapped-params (cl:mapcar #'unwrap-sql-value normed-params))
                       (rows (cl:apply

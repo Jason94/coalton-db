@@ -29,7 +29,7 @@
     (SqlQueryQuery SqlQuery)
     (QueryQuery Query))
 
-  (declare unwrap-query-container (DatabaseAdapter :a => ty:Proxy :a -> QueryContainer -> SqlQuery))
+  (declare unwrap-query-container (DatabaseAdapter :a => ty:Proxy :a * QueryContainer -> SqlQuery))
   (define (unwrap-query-container db-ty qry)
     (match qry
       ((StringQuery sql)

@@ -71,7 +71,7 @@
            (let result = (execute-query!_ cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
            (run-dbM! cnxn (next result))))))))
 
-  (declare run-db! (DatabaseAdapter :d => :d -> DB :a -> :a))
+  (declare run-db! (DatabaseAdapter :d => :d * DB :a -> :a))
   (define (run-db! cnxn op)
     (i:run-identity (run-dbM! cnxn op))))
 

@@ -262,14 +262,14 @@ definitions, etc."
   (define (column-names table)
     (map .name (.columns table)))
 
-  (declare lookup-col! (TableDef -> ColumnName -> ColumnDef))
+  (declare lookup-col! (TableDef * ColumnName -> ColumnDef))
   (define (lookup-col! table name)
     (for col in (.columns table)
       (when (== (.name col) name)
         (return col)))
     (error (<> "Could not find column named " name)))
 
-  (declare basic-column (String -> SqlType -> ColumnDef))
+  (declare basic-column (String * SqlType -> ColumnDef))
   (define (basic-column name type)
     "Create a SQL column definition with default flags:
 * primary key?    = False

@@ -28,7 +28,7 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (declare contains-pkey? (List ColumnDefinition -> List TableProperty -> Boolean))
+  (declare contains-pkey? (List ColumnDefinition * List TableProperty -> Boolean))
   (define (contains-pkey? col-specs tbl-specs)
     (or
      (contains? PrimaryKey (>>= col-specs .properties))
@@ -38,7 +38,7 @@
   (define default-pkey-col-def
      (ColumnDefinition "id" IntType (make-list PrimaryKey) False True))
 
-  (declare generate-cols (List ColumnDefinition -> List TableProperty -> List ColumnDefinition))
+  (declare generate-cols (List ColumnDefinition * List TableProperty -> List ColumnDefinition))
   (define (generate-cols col-specs tbl-specs)
     "Based on the user-specified column and table specs, generate the full list of columns
 for the SQL table."
@@ -46,7 +46,7 @@ for the SQL table."
         col-specs
         (Cons default-pkey-col-def col-specs)))
 
-  (declare CreateSchema% (Schema -> List CreateTableOption -> Query))
+  (declare CreateSchema% (Schema * List CreateTableOption -> Query))
   (define (CreateSchema% schema create-opts)
     (CreateTable%
      (.tbl-name schema)

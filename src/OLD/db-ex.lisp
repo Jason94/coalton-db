@@ -121,7 +121,7 @@
      (results <- (select-all User))
      (pure (pure results))))
 
-  (declare imperitive-ex (Unit -> QueryResult (List User)))
+  (declare imperitive-ex (Void -> QueryResult (List User)))
   (define (imperitive-ex)
     (let cnxn = (connect-sqlite! "test.db"))
     (let run-query = (run-with-sqlite-connection! cnxn))

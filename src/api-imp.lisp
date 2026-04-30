@@ -83,7 +83,7 @@
     (execute-query!_ cnxn
                      (unwrap-query-container (ty:proxy-of cnxn) (to-query qry))))
 
-  (declare execute-query!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> Unit))
+  (declare execute-query!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> Void))
   (define (execute-query!# cnxn qry)
     (r:ok-or-error (execute-query! cnxn qry)))
 
@@ -159,7 +159,7 @@
   (define (delete-obj! cnxn obj)
     (execute-query! cnxn (delete-obj-query obj)))
 
-  (declare delete-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Unit))
+  (declare delete-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Void))
   (define (delete-obj!# cnxn obj)
     (r:ok-or-error (delete-obj! cnxn obj)))
 
@@ -167,7 +167,7 @@
   (define (insert-obj! cnxn obj)
     (execute-query! cnxn (insert-obj-query obj None)))
 
-  (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Unit))
+  (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Void))
   (define (insert-obj!# cnxn obj)
     (r:ok-or-error (insert-obj! cnxn obj)))
 
@@ -178,7 +178,7 @@
       ((Some qry)
        (execute-query! cnxn qry))))
 
-  (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> Unit))
+  (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> Void))
   (define (insert-objs!# cnxn objs)
     (r:ok-or-error (insert-objs! cnxn objs)))
 
@@ -213,7 +213,7 @@
       ((None)
        (pure Unit))))
 
-  (declare update-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> Unit))
+  (declare update-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> Void))
   (define (update-obj!#_ cnxn obj where-cols?)
     (r:ok-or-error (update-obj!_ cnxn obj where-cols?)))
   )

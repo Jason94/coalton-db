@@ -39,7 +39,7 @@
   (define-class (ParseSqlValue :a)
     (parse-val (SqlValue -> DbResult :a)))
 
-  (declare wrong-type-err (SqlValue -> String -> DbResult :a))
+  (declare wrong-type-err (SqlValue * String -> DbResult :a))
   (define (wrong-type-err val expected-type)
     (Err (ResultParseError
           (build-str "Could not convert" (force-string val) " to " expected-type "."))))

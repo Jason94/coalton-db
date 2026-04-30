@@ -240,11 +240,11 @@ a type that can be passed directly to a DB implementation as a bound value."
   (cl:cond
     ((cl:not raw-val)
      SqlNull)
-    ((coalton (== (lisp SqlType () type) IntType))
+    ((coalton (== (lisp (-> SqlType) () type) IntType))
      (SqlInt raw-val))
-    ((coalton (== (lisp SqlType () type) TextType))
+    ((coalton (== (lisp (-> SqlType) () type) TextType))
      (SqlText raw-val))
-    ((coalton (== (lisp SqlType () type) BoolType))
+    ((coalton (== (lisp (-> SqlType) () type) BoolType))
      (SqlBool raw-val))
     (cl:t (cl:error (cl:format cl:nil "Unknown SQL type: ~a" type)))))
 
@@ -281,7 +281,7 @@ a type that can be passed directly to a DB implementation as a bound value."
    "Container for a related object in a POCO."
    (Rel_ (c:Cell (RelInner :a))))
 
- (declare empty-rel (Unit -> Rel :c))
+ (declare empty-rel (Void -> Rel :c))
  (define (empty-rel)
    "Create an empty relationship reference."
    (Rel_ (c:new Unloaded))))
@@ -318,7 +318,7 @@ a type that can be passed directly to a DB implementation as a bound value."
                     ((Tuple b rest2) <- (pb rest1))
                     (pure (Tuple (a->b->c a b) rest2)))))))
 
-  (declare parse-row_ (RowParser :a -> RowMap -> Result PersistParsingError :a))
+  (declare parse-row_ (RowParser :a * RowMap -> Result PersistParsingError :a))
   (define (parse-row_ (RowParser p) input)
     "Run a row parser on a RowMap of ColumnName->SqlValue, producing a parsed result.
 Meant to be used inside PARSE-ROW macro, but could be called on its own."
@@ -328,7 +328,7 @@ Meant to be used inside PARSE-ROW macro, but could be called on its own."
          (Ok result)
          (Err "Ran out of values to parse"))))
 
-  (declare parse-empty-rel (Unit -> RowParser (Rel :a)))
+  (declare parse-empty-rel (Void -> RowParser (Rel :a)))
   (define (parse-empty-rel)
     (RowParser (fn (input)
                  (Ok (Tuple (empty-rel) input)))))
@@ -458,7 +458,7 @@ Example:
     (query-none (Query -> :m (Result QueryError Unit)))
     (query-rows (Query -> List ColumnDef -> :m (Result QueryError (List (List SqlValue))))))
 
-  (declare make-column-map (List ColumnDef -> List SqlValue -> m:Map ColumnName SqlValue))
+  (declare make-column-map (List ColumnDef * List SqlValue -> m:Map ColumnName SqlValue))
   (define (make-column-map cols vals)
     "Given an order list of COLS and VALS, construct the col-name->val map."
     (let map = (c:new m:empty))
@@ -673,7 +673,7 @@ Important Note: Not used in all queries!"
         "FOREIGN KEY " here-keys-sql newline
           "REFERENCES " foreign-table-name there-keys-sql))))
 
-  (declare render-table-queries (Boolean -> TableDef -> List Query))
+  (declare render-table-queries (Boolean * TableDef -> List Query))
   (define (render-table-queries overwrite table)
     (let (Tuple columns-sql column-bound-vals) =
       (fold (fn ((Tuple acc-sql acc-bound-vals) col)
@@ -697,7 +697,7 @@ Important Note: Not used in all queries!"
          create-query)
         (make-list create-query)))
 
-  (declare render-schema-queries (List TableDef -> Boolean -> List Query))
+  (declare render-schema-queries (List TableDef * Boolean -> List Query))
   (define (render-schema-queries tables overwrite)
     ;; TODO: Refactor out this SQLIte specific stuff
     (<>
@@ -727,12 +727,12 @@ Important Note: Not used in all queries!"
   (declare rollback-tx-query Query)
   (define rollback-tx-query (unbound-query "rollback transaction"))
 
-  (declare remove-col-on-insert? (TableDef -> ColumnName -> SqlValue -> Boolean))
+  (declare remove-col-on-insert? (TableDef * ColumnName * SqlValue -> Boolean))
   (define (remove-col-on-insert? table col-name val)
     (and (== SqlNull val)
          (has-default? (lookup-col! table col-name))))
 
-  (declare insert-row-query (TableDef -> m:Map ColumnName SqlValue -> Query))
+  (declare insert-row-query (TableDef * m:Map ColumnName SqlValue -> Query))
   (define (insert-row-query table col-val)
     (let pairs = (the (List (Tuple ColumnName SqlValue))
                       (it:collect!
@@ -750,7 +750,7 @@ Important Note: Not used in all queries!"
       "(" (join-str "," placeholders) ");")
      vals))
 
-  (declare select-query (TableDef -> Optional RowCondition -> Query))
+  (declare select-query (TableDef * Optional RowCondition -> Query))
   (define (select-query table cnd?)
     (match cnd?
       ((None)
@@ -764,7 +764,7 @@ Important Note: Not used in all queries!"
          "SELECT * FROM " (.name table) " WHERE " cnd-sql ";")
         cnd-bound-vals))))
 
-  (declare delete-row-query (TableDef -> Optional RowCondition -> Query))
+  (declare delete-row-query (TableDef * Optional RowCondition -> Query))
   (define (delete-row-query table cnd?)
     (match cnd?
       ((None)
@@ -777,7 +777,7 @@ Important Note: Not used in all queries!"
         (build-str "DELETE FROM " (.name table) " WHERE " cnd-sql ";")
         cnd-bound-vals))))
 
-  (declare update-query (TableDef -> m:Map ColumnName SqlValue -> Optional RowCondition -> Query))
+  (declare update-query (TableDef * m:Map ColumnName SqlValue * Optional RowCondition -> Query))
   (define (update-query table col-vals cnd?)
     (let col-val-pairs = (the (List (Tuple ColumnName SqlValue)) (it:collect! (m:entries col-vals))))
     (let set-exprs = (map (fn ((Tuple col _))

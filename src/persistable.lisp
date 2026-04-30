@@ -43,7 +43,7 @@
     (prop-for-col
      "Get the property value on this Persistable corresponding to
 the column with the given name, if any."
-     (:a -> String -> Optional SqlValue)))
+     (:a * String -> Optional SqlValue)))
 
   (inline)
   (declare schema-for-obj (Persistable :p => :p -> Schema))
@@ -103,7 +103,7 @@ the column with the given name, if any."
     (Delete (From (tbl-name-for-obj obj))
             (Where (pkey-cnd-for obj))))
 
-  (declare insert-obj-query (Persistable :p => :p -> Optional ReturningStatement -> Query))
+  (declare insert-obj-query (Persistable :p => :p * Optional ReturningStatement -> Query))
   (define (insert-obj-query obj rtrn-stmt?)
     ;; TODO: Refactor this somehow
     (match rtrn-stmt?
@@ -119,7 +119,7 @@ the column with the given name, if any."
                (map LiteralColumn% (col-names-for obj))
                rtrn-stmt))))
 
-  (declare insert-objs-query (Persistable :p => List :p -> Optional ReturningStatement -> Optional Query))
+  (declare insert-objs-query (Persistable :p => List :p * Optional ReturningStatement -> Optional Query))
   (define (insert-objs-query objs rtrn-stmt?)
     "Generate a query to insert `objs`. If empty, returns `None`."
     ;; TODO: Refactor this somehow
@@ -142,7 +142,7 @@ the column with the given name, if any."
                    cols
                    rtrn-stmt)))))))
 
-  (declare update-col-err (Persistable :p => :p -> String -> String))
+  (declare update-col-err (Persistable :p => :p * String -> String))
   (define (update-col-err obj col-name)
     (build-str "Could not find column " col-name
                " on table " (tbl-name-for-obj obj)

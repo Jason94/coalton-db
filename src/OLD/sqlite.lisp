@@ -28,21 +28,21 @@
 
   (declare connect-sqlite! (String -> SqlLiteConnection))
   (define (connect-sqlite! connection-spec)
-    (lisp :a (connection-spec)
+    (lisp (-> :a) (connection-spec)
       (sl:connect connection-spec)))
 
-  (declare disconnect-sqlite! (SqlLiteConnection -> Unit))
+  (declare disconnect-sqlite! (SqlLiteConnection -> Void))
   (define (disconnect-sqlite! connection)
-    (lisp :a (connection)
+    (lisp (-> :a) (connection)
       (sl:disconnect connection))
-    Unit)
+    (values))
 
   (define-instance (MonadDatabase (ev:EnvT SqlLiteConnection io:IO))
     (define (query-none (Query sql bound-vals))
       (do
        (connection <- ev:ask)
        (lift (io:wrap-io
-               (lisp :x (connection sql bound-vals)
+               (lisp (-> :x) (connection sql bound-vals)
                  (cl:let ((unwrapped-bound-vals (cl:mapcar #'coalton-db/db::unwrap-sql-value bound-vals)))
                    (cl:handler-case
                        (cl:progn
@@ -55,7 +55,7 @@
        (connection <- ev:ask)
        (let types = (map .type cols))
        (lift (io:wrap-io
-               (lisp :x (connection sql bound-vals types)
+               (lisp (-> :x) (connection sql bound-vals types)
                  (cl:handler-case
                      (cl:progn
                        (cl:let* ((unwrapped-bound-vals (cl:mapcar #'coalton-db/db::unwrap-sql-value bound-vals))
@@ -69,7 +69,7 @@
                    (cl:error (e)
                      (Err (QueryError (cl:format cl:nil "~a" e)))))))))))
 
-  (declare run-sqlite!_ (ev:EnvT SqlLiteConnection io:IO :a -> SqlLiteConnection -> :a))
+  (declare run-sqlite!_ (ev:EnvT SqlLiteConnection io:IO :a * SqlLiteConnection -> :a))
   (define (run-sqlite!_ op connection)
     (io:run! (ev:run-envT op connection)))
 

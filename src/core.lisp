@@ -98,7 +98,7 @@
 
   (define-type-alias Row (List SqlValue)))
 
-(cl:defmacro Values (cl:&rest vals)
+(cl:defmacro Values_ (cl:&rest vals)
   "A list of raw SQL values."
   `(the (List SqlValue)
     (make-list ,@(cl:mapcar (cl:lambda (x)
@@ -226,12 +226,12 @@ AutoIncrement column."
     (after-pkey String))
 
   (define-class (DatabaseAdapter :a)
-    (next-placeholder (ty:Proxy :a -> Optional String -> String))
+    (next-placeholder (ty:Proxy :a * Optional String -> String))
     (auto-increment-syntax (ty:Proxy :a -> AutoIncrementSyntax))
     (run-query! (:a -> SqlQuery -> DbResult (List Row))))
 
   ;; NOTE: Depending on the underlying database library, it might be worth exposing
   ;; this to DatabaseAdapter.
-  (declare execute-query!_ (DatabaseAdapter :a => :a -> SqlQuery -> DbResult Unit))
+  (declare execute-query!_ (DatabaseAdapter :a => :a * SqlQuery -> DbResult Unit))
   (define (execute-query!_ cnxn qry)
     (map (const Unit) (run-query! cnxn qry))))

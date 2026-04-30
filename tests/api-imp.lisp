@@ -74,7 +74,7 @@
   (let qry = (DropTable "test" IfExists))
   (let result = (execute-query!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
-  (is (== Unit result)))
+  (is (== (values) result)))
 
 (define-test test-query-sql-row ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
@@ -124,7 +124,7 @@
         ("verified" (Some (SqlBool (.verified? user))))
         (_ None))))
 
-  (declare setup-users (DatabaseAdapter :d => :d -> List SimpleUser -> Unit))
+  (declare setup-users (DatabaseAdapter :d => :d * List SimpleUser -> Void))
   (define (setup-users cnxn users)
     (execute-query!# cnxn (CreateSchema simple-user-table))
     (for user in users

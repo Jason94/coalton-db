@@ -530,7 +530,7 @@
     (op:from-some (build-str "Didn't supply enough values to insert into " (force-string cols?))
                   (map (<> "VALUES ") placeholders)))
 
-  (declare to-sql (DatabaseAdapter :a => ty:Proxy :a -> Query -> SqlQuery))
+  (declare to-sql (DatabaseAdapter :a => ty:Proxy :a * Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
     "Convert a Query object to a SQL string that can be run in a database."
     (let last-param-str = (the (c:Cell (Optional String)) (c:new None)))

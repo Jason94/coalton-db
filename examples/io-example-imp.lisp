@@ -37,13 +37,13 @@
 (coalton-toplevel
   (define *next-id* (c:new 0))
 
-  (declare next-id! (Unit -> Integer))
+  (declare next-id! (Void -> Integer))
   (define (next-id!)
     (c:increment! *next-id*))
 
-  (declare read-line! (Unit -> String))
+  (declare read-line! (Void -> String))
   (define (read-line!)
-    (lisp :a ()
+    (lisp (-> :a) ()
       (cl:read-line))))
 
 (coalton-toplevel
@@ -63,7 +63,7 @@
           ((None)
            (Err "Could not parse age.")))))
 
-  (declare insert-tables! (DatabaseAdapter :d => :d -> Unit))
+  (declare insert-tables! (DatabaseAdapter :d => :d -> Void))
   (define (insert-tables! cnxn)
     (print "Name? (Required)")
     (let name = (read-line!))
@@ -88,13 +88,13 @@
     (let continue = (== "Y" (read-line!)))
     (if continue
         (insert-tables! cnxn)
-        Unit))
+        (values)))
 
   (declare get-tables! (DatabaseAdapter :d => :d -> DbResult (List Row)))
   (define (get-tables! cnxn)
     (query-rows! cnxn (Select AllCols (From "users"))))
 
-  (declare main (Unit -> Unit))
+  (declare main (Void -> Void))
   (define (main)
     (let cnxn = (connect-sqlite! ":memory:"))
     (print "Creating user table...")

@@ -24,7 +24,7 @@
   (declare norm (String -> String))
   (define (norm s)
     "Return S with every run of whitespace collapsed to a single space."
-    (lisp String (s)
+    (lisp (-> String) (s)
       (cl-ppcre:regex-replace-all "\\s+" s " ")))
 
   ;; NOTE: For the purpose of testing, we will use the same test adapter, unless

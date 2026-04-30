@@ -26,7 +26,7 @@
 (named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
-  (declare join-str (String -> List String -> String))
+  (declare join-str (String * List String -> String))
   (define (join-str sep strs)
     (match (length strs)
       (0 "")
@@ -37,22 +37,22 @@
              (l:car strs)
              (l:cdr strs)))))
 
-  (declare i# (UFix -> List :a -> :a))
+  (declare i# (UFix * List :a -> :a))
   (define (i# i lst)
     (opt:from-some "List index out of bounds." (l:index i lst)))
 
   (declare force-string (:a -> String))
   (define (force-string x)
-    (lisp String (x)
+    (lisp (-> String) (x)
       (cl:format cl:nil "~a" x)))
 
-  (declare contains? (Eq :a => :a -> List :a -> Boolean))
+  (declare contains? (Eq :a => :a * List :a -> Boolean))
   (define (contains? elt lst)
     (match (l:elemindex elt lst)
       ((Some _) True)
       ((None) False)))
 
-  (declare contains-where? ((:a -> Boolean) -> List :a -> Boolean))
+  (declare contains-where? ((:a -> Boolean) * List :a -> Boolean))
   (define (contains-where? f lst)
     (match lst
       ((Nil) False)
@@ -88,7 +88,7 @@ in a Coalton Optional."
          `None))
 
 (coalton-toplevel
-  (declare chunk-list (UFix -> List :a -> List (List :a)))
+  (declare chunk-list (UFix * List :a -> List (List :a)))
   (define (chunk-list n lst)
     (rec % ((ret Nil)
             (rem lst))
