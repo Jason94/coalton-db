@@ -62,3 +62,14 @@
                 ((:file "io-example-fp")
                  (:file "io-example-imp"))))
   :description "Test system for COALTON-DB.")
+
+(defsystem "coalton-db/docs"
+  :author "Jason Walker"
+  :license "MIT"
+  :depends-on ("coalton-db" "coalton/doc")
+  :pathname "pkg"
+  :components ((:file "gen-docs"))
+  :description "Generate HTML documentation for coalton-db."
+  :perform (load-op (op c)
+            (uiop:with-current-directory ((asdf:system-source-directory c))
+              (uiop:symbol-call '#:coalton-db/docs '#:write-docs))))
