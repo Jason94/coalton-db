@@ -154,9 +154,16 @@ abort parsing the whole list."
                           (Ok (Tuple val rest)))))))))))
 
 (cl:defmacro define-row-parser (constructor cl:&rest sub-parsers)
-  `(define-instance (ParseSqlRow ,constructor)
-     (define (sql-value-parser)
-       (liftAn ,constructor ,@sub-parsers))))
+  ;; Note: Inlining this causes Coalton to fail because it sees an invalid recursive
+  ;; value definition.
+  (cl:let ((value-fn-sym (cl:intern (cl:symbol-name (cl:gensym "value-fn")))))
+    `(progn
+       (define ,value-fn-sym
+         (liftAn ,constructor ,@sub-parsers))
+
+       (define-instance (ParseSqlRow ,constructor)
+         (define sql-value-parser
+           ,value-fn-sym)))))
 
 (coalton-toplevel
   (define-row-parser-from-val-parser Integer)
