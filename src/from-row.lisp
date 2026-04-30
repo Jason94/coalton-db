@@ -84,9 +84,9 @@
     (RowParser (Row -> DbResult (Tuple :a Row))))
 
   (inline)
-  (declare run-row-parser (RowParser :a -> Row -> DbResult (Tuple :a Row)))
-  (define (run-row-parser (RowParser f))
-    f)
+  (declare run-row-parser (RowParser :a * Row -> DbResult (Tuple :a Row)))
+  (define (run-row-parser (RowParser f) row)
+    (f row))
 
   (define-instance (Functor RowParser)
     (inline)
@@ -132,7 +132,7 @@
     "Parse a list of rows. When the first parsing error is encountered,
 abort parsing the whole list."
     (let results = (c:new Nil))
-    (for row in rows
+    (foreach (row rows)
       (match (parse-row row)
         ((Ok a) (c:push! results a))
         ((Err e) (return (Err e)))))

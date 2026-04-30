@@ -60,7 +60,7 @@
   (declare select-value (ParseSqlValue :a => SqlValue -> Db (DbResult :a)))
   (define (select-value val)
     (rt:do-resultT
-      (let qry = (Select (Values val)))
+      (let qry = (Select (Values_ val)))
       (result <- (query-sql-rows qry))
       (let val = (i# 0 (i# 0 result)))
       (pure (parse-val val)))))
@@ -81,9 +81,9 @@
   (let cnxn = (sq:connect-sqlite! ":memory:"))
   (let result =
     (run-db! cnxn
-             (query-sql-row (Select (Values 1 2 3)))))
+             (query-sql-row (Select (Values_ 1 2 3)))))
   (sq:disconnect-sqlite! cnxn)
-  (is (== (Ok (Values 1 2 3))
+  (is (== (Ok (Values_ 1 2 3))
           result)))
 
 ;;;
@@ -348,7 +348,7 @@
                 (insert-obj user1)
                 (execute-query
                  (Insert (IntoTable "users")
-                         (Values))))
+                         (Values_))))
               (select-objs))))
   (sq:disconnect-sqlite! cnxn)
   (is (== (Ok (the (List SimpleUser)

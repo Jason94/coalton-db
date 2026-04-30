@@ -67,7 +67,7 @@
         (id <- (map u:to-int u:new-unique))
         (result <- (execute-query
                     (Insert (IntoTable "users")
-                            (Values id name age)
+                            (Values_ id name age)
                             (Cols "id" "name" "age"))))
         (match result
           ((Err e)

@@ -30,6 +30,6 @@
     (define to-row id)))
 
 (cl:defmacro build-row (obj cl:&rest funcs)
-  `(Values ,@(cl:mapcar (cl:lambda (f)
+  `(Values_ ,@(cl:mapcar (cl:lambda (f)
                           `(,f ,obj))
                         funcs)))

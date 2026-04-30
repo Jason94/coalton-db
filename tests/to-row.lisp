@@ -28,7 +28,7 @@
 
 (define-test test-single-field ()
   (let vals = (to-row (User "Steve")))
-  (is (== (Values "Steve")
+  (is (== (Values_ "Steve")
           vals)))
 
 (coalton-toplevel
@@ -44,6 +44,6 @@
 
 (define-test test-multiple-fields ()
   (let vals = (to-row (User2 "Steve" 20 (Some "pizza") False)))
-  (is (== (Values "Steve" 20 "pizza" False)
+  (is (== (Values_ "Steve" 20 "pizza" False)
           vals)))
 

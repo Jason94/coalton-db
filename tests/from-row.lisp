@@ -20,42 +20,42 @@
 
 (define-test test-parse-text ()
   (is (== (Ok "Test")
-          (parse-row (Values "Test")))))
+          (parse-row (Values_ "Test")))))
 
 (define-test test-parse-int ()
   (is (== (Ok 10)
-          (parse-row (Values 10)))))
+          (parse-row (Values_ 10)))))
 
 (define-test test-parse-bool ()
   (is (== (Ok True)
-          (parse-row (Values True)))))
+          (parse-row (Values_ True)))))
 
 (define-test test-parse-bool-true-str ()
   (is (== (Ok True)
-          (parse-row (Values "TRUE")))))
+          (parse-row (Values_ "TRUE")))))
 
 (define-test test-parse-bool-false-str ()
   (is (== (Ok False)
-          (parse-row (Values "FALSE")))))
+          (parse-row (Values_ "FALSE")))))
 
 (define-test test-parse-some ()
   (is (== (Ok (Some 10))
-          (parse-row (Values 10)))))
+          (parse-row (Values_ 10)))))
 
 (define-test test-parse-none ()
   (let result = (the (DbResult (Optional Integer))
-                     (parse-row (Values (the (Optional Integer)
+                     (parse-row (Values_ (the (Optional Integer)
                                              None)))))
   (is (== (Ok None)
           result)))
 
 (define-test test-parse-tuple ()
   (is (== (Ok (Tuple 10 "Text"))
-          (parse-row (Values 10 "Text")))))
+          (parse-row (Values_ 10 "Text")))))
 
 (define-test test-parse-errors-type-mismatch ()
   (let result = (the (DbResult Integer)
-                     (parse-row (Values "Text"))))
+                     (parse-row (Values_ "Text"))))
   (is (err? result)))
 
 ;;;
@@ -75,19 +75,19 @@
 
 (define-test test-parse-row-simple-record ()
   (is (== (Ok (SimpleUser "Steve" False))
-          (parse-row (Values "Steve" False)))))
+          (parse-row (Values_ "Steve" False)))))
 
 (define-test test-parse-row-errors-with-too-few ()
   (let result = (the (DbResult SimpleUser)
-                     (parse-row (Values "Steve"))))
+                     (parse-row (Values_ "Steve"))))
   (is (err? result)))
 
 (define-test test-parse-row-errors-with-too-many ()
   (let result = (the (DbResult SimpleUser)
-                     (parse-row (Values "Steve" False "Extra"))))
+                     (parse-row (Values_ "Steve" False "Extra"))))
   (is (err? result)))
 
 (define-test test-parse-row-errors-type-mismatch ()
   (let result = (the (DbResult SimpleUser)
-                     (parse-row (Values "Steve" "False"))))
+                     (parse-row (Values_ "Steve" "False"))))
   (is (err? result)))

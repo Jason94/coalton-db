@@ -17,25 +17,25 @@
 ;;;
 
 (define-test test-select-constant ()
-  (let result = (to-sql-test1 (Select (Values 5))))
+  (let result = (to-sql-test1 (Select (Values_ 5))))
   (is-sql-eql "SELECT ?;" ((SqlInt 5))
               result)
-  (let result2 = (to-sql-test1 (Select (Values "Hello"))))
+  (let result2 = (to-sql-test1 (Select (Values_ "Hello"))))
   (is-sql-eql "SELECT ?;" ((SqlText "Hello"))
               result2))
 
 (define-test test-select-multiple-constants ()
-  (let result = (to-sql-test1 (Select (Values 5 "Hello"))))
+  (let result = (to-sql-test1 (Select (Values_ 5 "Hello"))))
   (is-sql-eql "SELECT ?, ?;" ((SqlInt 5) (SqlText "Hello"))
               result))
 
 (define-test test-select-multiple-constants-pg-style-adapter ()
-  (let result = (to-sql-test2 (Select (Values 5 "Hello"))))
+  (let result = (to-sql-test2 (Select (Values_ 5 "Hello"))))
   (is-sql-eql "SELECT $0, $1;" ((SqlInt 5) (SqlText "Hello"))
               result))
 
 (define-test test-select-constants-from-table ()
-  (let result = (to-sql-test1 (Select (Values 5) (From "test-table"))))
+  (let result = (to-sql-test1 (Select (Values_ 5) (From "test-table"))))
   (is-sql-eql "SELECT ? FROM test-table;" ((SqlInt 5))
               result))
 
@@ -264,7 +264,7 @@
 (define-test test-insert-single-row-without-columns ()
   (let result = (to-sql-test1
                  (Insert (IntoTable "test-table")
-                         (Values 1 "Alice"))))
+                         (Values_ 1 "Alice"))))
   (is-sql-eql "INSERT INTO test-table VALUES (?, ?);"
               ((SqlInt 1) (SqlText "Alice"))
               result))
@@ -272,7 +272,7 @@
 (define-test test-insert-single-row-with-columns ()
   (let result = (to-sql-test1
                  (Insert (IntoTable "test-table")
-                         (Values 1 "Alice")
+                         (Values_ 1 "Alice")
                          (Cols "id" "name"))))
   (is-sql-eql "INSERT INTO test-table (id, name) VALUES (?, ?);"
               ((SqlInt 1) (SqlText "Alice"))
@@ -281,7 +281,7 @@
 (define-test test-insert-single-row-with-columns-pg-style-adapter ()
   (let result = (to-sql-test2
                  (Insert (IntoTable "test-table")
-                         (Values 1 "Alice")
+                         (Values_ 1 "Alice")
                          (Cols "id" "name"))))
   (is-sql-eql "INSERT INTO test-table (id, name) VALUES ($0, $1);"
               ((SqlInt 1) (SqlText "Alice"))
@@ -290,7 +290,7 @@
 (define-test test-insert-multiple-rows-with-columns ()
   (let result = (to-sql-test1
                  (Insert (IntoTable "test-table")
-                         (Values 1 "Alice"
+                         (Values_ 1 "Alice"
                                  2 "Steve")
                          (Cols "id" "name"))))
   (is-sql-eql "INSERT INTO test-table (id, name) VALUES (?, ?), (?, ?);"
@@ -304,7 +304,7 @@
 (define-test test-insert-returning-all ()
   (let result = (to-sql-test1
                  (Insert (IntoTable "test-table")
-                         (Values "Alice")
+                         (Values_ "Alice")
                          (Cols "name")
                          (Returning AllCols))))
   (is-sql-eql "INSERT INTO test-table (name) VALUES (?) RETURNING *;"
@@ -314,7 +314,7 @@
 (define-test test-insert-returning-cols ()
   (let result = (to-sql-test1
                  (Insert (IntoTable "test-table")
-                         (Values "Alice")
+                         (Values_ "Alice")
                          (Cols "name")
                          (Returning (Cols "id" "name")))))
   (is-sql-eql "INSERT INTO test-table (name) VALUES (?) RETURNING id, name;"
@@ -326,9 +326,9 @@
 (define-test test-insert-returning-vals ()
   (let result = (to-sql-test1
                  (Insert (IntoTable "test-table")
-                         (Values "Alice")
+                         (Values_ "Alice")
                          (Cols "name")
-                         (Returning (Values 10 "test")))))
+                         (Returning (Values_ 10 "test")))))
   (is-sql-eql "INSERT INTO test-table (name) VALUES (?) RETURNING ?, ?;"
               ((SqlText "Alice") (SqlInt 10) (SqlText "test"))
               result))

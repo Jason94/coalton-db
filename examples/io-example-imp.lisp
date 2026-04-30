@@ -77,7 +77,7 @@
        (let result =
          (execute-query! cnxn
                       (Insert (IntoTable "users")
-                              (Values id name age)
+                              (Values_ id name age)
                               (Cols "id" "name" "age"))))
        (match result
          ((Err e)

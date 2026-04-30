@@ -7,6 +7,7 @@
   (:local-nicknames
    (:l  #:coalton-library/list)
    (:opt #:coalton-library/optional)
+   (:it #:coalton-library/iterator)
    )
   (:export
    #:join-str
@@ -20,6 +21,7 @@
    #:chunk-list
    #:left-pad
    #:right-pad
+   #:foreach
    ))
 (in-package :coalton-db/util)
 
@@ -112,3 +114,19 @@ in a Coalton Optional."
         ""
         (<> str " ")))
   )
+
+(defmacro foreach ((variable iter) cl:&body body)
+  "Perform `body` with `variable` bound to each element in `iter`.
+
+`iter` must have a valid `IntoIter` instance."
+  (cl:let ((iter-sym (cl:gensym "iter"))
+           (item?-sym (cl:gensym "item?")))
+   `(let ((,iter-sym (it:into-iter ,iter)))
+      (for ((,item?-sym (it:next! ,iter-sym) (it:next! ,iter-sym)))
+        (match ,item?-sym
+          ((Some ,variable)
+           ,@body
+           Unit)
+          ((None)
+           (break)
+           Unit))))))

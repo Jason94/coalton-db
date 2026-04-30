@@ -48,7 +48,7 @@
 
 (define-test test-run-one-query-hardcoded-placeholder ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
-  (let qry = (SqlQuery "SELECT ?;" (Values "Hello")))
+  (let qry = (SqlQuery "SELECT ?;" (Values_ "Hello")))
   (let result = (query-sql-rows!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (parse-val (i# 0 (i# 0 result))))
@@ -56,7 +56,7 @@
 
 (define-test test-run-one-query-placeholders ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
-  (let qry = (Select (Values "Hello")))
+  (let qry = (Select (Values_ "Hello")))
   (let result = (query-sql-rows!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
   (let result-val = (parse-val (i# 0 (i# 0 result))))
@@ -78,18 +78,18 @@
 
 (define-test test-query-sql-row ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
-  (let qry = (Select (Values 1 2 3)))
+  (let qry = (Select (Values_ 1 2 3)))
   (let result = (query-sql-row! cnxn qry))
   (sq:disconnect-sqlite! cnxn)
-  (is (== (Ok (Values 1 2 3))
+  (is (== (Ok (Values_ 1 2 3))
           result)))
 
 (define-test test-query-sql-row-unsafe ()
   (let cnxn = (sq:connect-sqlite! ":memory:"))
-  (let qry = (Select (Values 1 2 3)))
+  (let qry = (Select (Values_ 1 2 3)))
   (let result = (query-sql-row!# cnxn qry))
   (sq:disconnect-sqlite! cnxn)
-  (is (== (Values 1 2 3)
+  (is (== (Values_ 1 2 3)
           result)))
 
 ;;;
@@ -425,7 +425,7 @@
       (insert-obj!# cnxn user1)
       (execute-query!# cnxn
        (Insert (IntoTable "users")
-               (Values)))
+               (Values_)))
       (select-objs! cnxn)))
   (let users = (select-objs! cnxn))
   (sq:disconnect-sqlite! cnxn)

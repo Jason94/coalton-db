@@ -228,10 +228,10 @@ AutoIncrement column."
   (define-class (DatabaseAdapter :a)
     (next-placeholder (ty:Proxy :a * Optional String -> String))
     (auto-increment-syntax (ty:Proxy :a -> AutoIncrementSyntax))
-    (run-query! (:a -> SqlQuery -> DbResult (List Row))))
+    (run-query! (:a * SqlQuery -> DbResult (List Row))))
 
   ;; NOTE: Depending on the underlying database library, it might be worth exposing
   ;; this to DatabaseAdapter.
   (declare execute-query!_ (DatabaseAdapter :a => :a * SqlQuery -> DbResult Unit))
   (define (execute-query!_ cnxn qry)
-    (map (const Unit) (run-query! cnxn qry))))
+    (map (fn (_) Unit) (run-query! cnxn qry))))

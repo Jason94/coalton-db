@@ -31,7 +31,7 @@
               (to-sql
                (ty:proxy-of cnxn)
                (Insert (IntoTable "Volunteers")
-                       (Values 1 "product marketing"
+                       (Values_ 1 "product marketing"
                                "Jane Doe" True
                                (the (Optional Integer) None) (Some False))
                        (Cols "id" "campaign" "name" "flagged"
