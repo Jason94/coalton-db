@@ -135,32 +135,32 @@
     (Or_ RowCondition RowCondition))
 
   (inline)
-  (declare Eq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (declare Eq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a * :b -> RowCondition))
   (define (Eq_ a b)
     (Eq% (inline (into a)) (inline (into b))))
 
   (inline)
-  (declare Neq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (declare Neq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a * :b -> RowCondition))
   (define (Neq_ a b)
     (Neq% (inline (into a)) (inline (into b))))
 
   (inline)
-  (declare Gt_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (declare Gt_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a * :b -> RowCondition))
   (define (Gt_ a b)
     (Gt% (inline (into a)) (inline (into b))))
 
   (inline)
-  (declare GtEq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (declare GtEq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a * :b -> RowCondition))
   (define (GtEq_ a b)
     (GtEq% (inline (into a)) (inline (into b))))
 
   (inline)
-  (declare Lt_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (declare Lt_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a * :b -> RowCondition))
   (define (Lt_ a b)
     (Lt% (inline (into a)) (inline (into b))))
 
   (inline)
-  (declare LtEq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a -> :b -> RowCondition))
+  (declare LtEq_ ((Into :a RowConditionTarget) (Into :b RowConditionTarget) => :a * :b -> RowCondition))
   (define (LtEq_ a b)
     (LtEq% (inline (into a)) (inline (into b))))
 
@@ -355,7 +355,7 @@
 ;;;
 
 (coalton-toplevel
-  (declare get-placeholders! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> UFix -> List String))
+  (declare get-placeholders! (DatabaseAdapter :a => ty:Proxy :a * c:Cell (Optional String) * UFix -> List String))
   (define (get-placeholders! db-adptr-proxy last-param-str n)
     "Get the next `n` placeholder strings. Will set `last-param-str` to the end of the returned list."
     (lp:collecttimes (_ n)
@@ -363,7 +363,7 @@
       (c:write! last-param-str (Some next-param-str))
       next-param-str))
 
-  (declare get-next-placeholder! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> String))
+  (declare get-next-placeholder! (DatabaseAdapter :a => ty:Proxy :a * c:Cell (Optional String) -> String))
   (define (get-next-placeholder! db-adptr-proxy last-param-str)
     "Get the next placeholder string, set it as the new `last-param-str`, and return."
     (let result = (next-placeholder db-adptr-proxy (c:read last-param-str)))
@@ -376,7 +376,7 @@
       ((LiteralColumn% col-name)
        col-name)))
 
-  (declare row-cnd-tgt-to-sql! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> RowConditionTarget
+  (declare row-cnd-tgt-to-sql! (DatabaseAdapter :a => ty:Proxy :a * c:Cell (Optional String) * RowConditionTarget
                                                 -> (Tuple String (List SqlValue))))
   (define (row-cnd-tgt-to-sql! db-adptr-proxy last-param-str tgt)
     (match tgt
@@ -385,7 +385,7 @@
       ((Value_ val)
        (Tuple (get-next-placeholder! db-adptr-proxy last-param-str) (make-list val)))))
 
-  (declare row-condition-to-sql! (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) -> RowCondition
+  (declare row-condition-to-sql! (DatabaseAdapter :a => ty:Proxy :a * c:Cell (Optional String) * RowCondition
                                                   -> (Tuple String (List SqlValue))))
   (define (row-condition-to-sql! db-adptr-proxy last-param-str row-cnd)
     (let const-op = (fn (val) (Tuple val (make-list))))
@@ -428,8 +428,9 @@
          (row-condition-to-sql! db-adptr-proxy last-param-str cnd))
        (Tuple (build-str "NOT " cnd-sql) cnd-params))))
 
-  (declare col-def-to-sql (DatabaseAdapter :d => ty:Proxy :d -> c:Cell (Optional String) -> ColumnDefinition
-                                           -> (Tuple String (List SqlValue))))
+  (declare col-def-to-sql (DatabaseAdapter :d
+                           => ty:Proxy :d * c:Cell (Optional String) * ColumnDefinition
+                           -> (Tuple String (List SqlValue))))
   (define (col-def-to-sql db-prx last-param-str col-def)
     (let type-sql = (match (.col-type col-def)
                       ((IntType) "INTEGER")
@@ -439,7 +440,7 @@
     (let pkey-sql = (c:new ""))
     (let unique-sql = (c:new ""))
     (let default-sql = (c:new ""))
-    (for prop in (.properties col-def)
+    (foreach (prop (.properties col-def))
       (match prop
         ((PrimaryKey)
          (c:write! pkey-sql
@@ -483,8 +484,9 @@
       ((CompositePrimaryKey% tables)
        (build-str "PRIMARY KEY (" (join-str ", " tables) ")"))))
 
-  (declare select-tgt->sql (DatabaseAdapter :a => ty:Proxy :a -> c:Cell (Optional String) ->
-                                            SelectTarget -> (Tuple String (List SqlValue))))
+  (declare select-tgt->sql (DatabaseAdapter :a
+                            => ty:Proxy :a * c:Cell (Optional String) * SelectTarget
+                            -> (Tuple String (List SqlValue))))
   (define (select-tgt->sql db-prx last-param-str select-stmt)
     (let (Tuple select-stmt-sql select-stmt-vals) =
       (match select-stmt
@@ -501,8 +503,10 @@
     (Tuple select-stmt-sql
            select-stmt-vals))
 
-  (declare insert-into-values-sql (DatabaseAdapter :a => List SqlValue -> Optional (List SqlColumn)
-                                                   -> ty:Proxy :a -> c:Cell (Optional String) -> String))
+  (declare insert-into-values-sql (DatabaseAdapter :a
+                                   => List SqlValue * Optional (List SqlColumn)
+                                   * ty:Proxy :a * c:Cell (Optional String)
+                                   -> String))
   (define (insert-into-values-sql vals cols? db-prx last-param-str)
     (let convert-chunk =
       (fn (vals-chunk)
@@ -528,7 +532,9 @@
                    (convert-chunk fst-chunk)
                    chunks)))))))
     (op:from-some (build-str "Didn't supply enough values to insert into " (force-string cols?))
-                  (map (<> "VALUES ") placeholders)))
+                  (map (fn (s)
+                         (<> "VALUES " s))
+                       placeholders)))
 
   (declare to-sql (DatabaseAdapter :a => ty:Proxy :a * Query -> SqlQuery))
   (define (to-sql db-adptr-proxy qry)
@@ -616,7 +622,9 @@
              (cons new-sql accum-sql)
              (<> accum-params new-params)))
           (Tuple Nil Nil)
-          (map (col-def-to-sql db-adptr-proxy last-param-str) col-defs)))
+          (map (fn (col-def)
+                 (col-def-to-sql db-adptr-proxy last-param-str col-def))
+               col-defs)))
        (let col-defs-sql = (join-str ", " (reverse col-defs-sql-parts)))
        (let tbl-props-sql =
          (if (== Nil tbl-props)

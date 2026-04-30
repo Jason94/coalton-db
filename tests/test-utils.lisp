@@ -43,7 +43,9 @@
     (define (run-query! _ _)
       (Ok (make-list))))
 
-  (define to-sql-test1 (to-sql (the (ty:Proxy TestAdapter1) ty:Proxy)))
+  (define (to-sql-test1 qry)
+    (to-sql (the (ty:Proxy TestAdapter1) ty:Proxy)
+            qry))
 
   (define-type TestAdapter2 TestAdapter2)
 
@@ -65,7 +67,9 @@
     (define (run-query! _ _)
       (Ok (make-list))))
 
-  (define to-sql-test2 (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy))))
+  (define (to-sql-test2 qry)
+    (to-sql (the (ty:Proxy TestAdapter2) ty:Proxy)
+            qry)))
 
 (cl:defmacro is-sql-eql (sql-str-a params-a sql-b)
   "Test if a sql queriy has (1) the right normalized query string and (2) has

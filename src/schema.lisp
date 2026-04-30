@@ -56,11 +56,11 @@ for the SQL table."
 
   (declare pkey-col-names (Schema -> List String))
   (define (pkey-col-names schema)
-    (for col in (.col-specs schema)
+    (foreach (col (.col-specs schema))
       (when (contains? PrimaryKey (.properties col))
         (return (make-list (.col-name
                             (the ColumnDefinition col))))))
-    (for tbl-prop in (.tbl-props schema)
+    (foreach (tbl-prop (.tbl-props schema))
       (match tbl-prop
         ((CompositePrimaryKey% col-names) (return col-names))))
     (error (build-str "Table " (.tbl-name schema) " defined without a primary key!")))

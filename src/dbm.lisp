@@ -6,6 +6,7 @@
    #:coalton-db/core
    #:coalton-db/queries
    #:coalton-db/api-helpers
+   #:io/io-all
    )
   (:local-nicknames
    (:i #:coalton-library/monad/identity)
@@ -13,9 +14,7 @@
    (:env #:coalton-library/monad/environment)
    (:st #:coalton-library/monad/stateT)
    (:ty #:coalton-library/types)
-   (:io #:simple-io/io)
-   (:io-t #:simple-io/term)
-   (:io-u #:simple-io/unique))
+   )
   (:export
    ;;; Library Public
    #:DBM
@@ -56,20 +55,19 @@
 ;;;
 
 (coalton-toplevel
-  (declare run-dbM! ((DatabaseAdapter :d) (Monad :m) => :d -> DBM :m :a -> :m :a))
-  (define (run-dbM! cnxn op)
-    (do
-     (step <- (ft:run-freeT op))
-     (match step
-       ((ft:Val a) (pure a))
-       ((ft:FreeF op)
-        (match op
-          ((QueryRows qry next)
-           (let result = (run-query! cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
-           (run-dbM! cnxn (next result)))
-          ((ExecuteQuery qry next)
-           (let result = (execute-query!_ cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
-           (run-dbM! cnxn (next result))))))))
+  (declare run-dbM! ((DatabaseAdapter :d) (Monad :m) => :d * DBM :m :a -> :m :a))
+  (define (run-dbM! cnxn dbm)
+    (ft:run-freeT
+     (fn (op)
+       (match op
+         ((QueryRows qry next)
+          (let result = (run-query! cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
+          (next result))
+         ((ExecuteQuery qry next)
+          (let result = (execute-query!_ cnxn (unwrap-query-container (ty:proxy-of cnxn) qry)))
+          (next result))
+         ))
+     dbm))
 
   (declare run-db! (DatabaseAdapter :d => :d * DB :a -> :a))
   (define (run-db! cnxn op)
@@ -90,8 +88,5 @@
 ;;;
 
 (coalton-toplevel
-  (define-instance (io-u:MonadIoUnique :m => io-u:MonadIoUnique (DBM :m))
-    (define io-u:new-unique (lift io-u:new-unique)))
-
-  (io:derive-monad-io :m (DBM :m))
-  (io-t:derive-monad-io-term (DBM :m)))
+  (derive-monad-io-all :m (DBM :m))
+  )

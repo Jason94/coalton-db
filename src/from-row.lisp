@@ -155,7 +155,7 @@ abort parsing the whole list."
 
 (cl:defmacro define-row-parser (constructor cl:&rest sub-parsers)
   `(define-instance (ParseSqlRow ,constructor)
-     (define sql-value-parser
+     (define (sql-value-parser)
        (liftAn ,constructor ,@sub-parsers))))
 
 (coalton-toplevel

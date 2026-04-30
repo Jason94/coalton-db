@@ -61,7 +61,8 @@ the column with the given name, if any."
     (let pkey-col-names = (pkey-col-names (schema-for (ty:proxy-of obj))))
     (let pkey-vals =
       (op:from-some (build-str (force-string obj) " is missing one or more primary key values.")
-                    (traverse (prop-for-col obj)
+                    (traverse (fn (x)
+                                (prop-for-col obj x))
                               pkey-col-names)))
     (Tuple pkey-col-names pkey-vals))
 
@@ -90,7 +91,9 @@ the column with the given name, if any."
   (define (sql-vals-for obj)
     "Get all of the SQL values for `obj`s data, in column order."
     (op:from-some "Object missing data for column."
-                  (traverse (prop-for-col obj) (col-names-for obj))))
+                  (traverse (fn (x)
+                              (prop-for-col obj x))
+                            (col-names-for obj))))
   )
 
 ;;;
@@ -148,7 +151,7 @@ the column with the given name, if any."
                " on table " (tbl-name-for-obj obj)
                " when trying to update."))
 
-  (declare update-obj-query (Persistable :p => :p -> Optional (List String) -> Optional Query))
+  (declare update-obj-query (Persistable :p => :p * Optional (List String) -> Optional Query))
   (define (update-obj-query obj where-cols?)
     (let where-cols =
       (match where-cols?

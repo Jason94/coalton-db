@@ -57,16 +57,16 @@
   ;;; Low Level Query Ops (Return SQL Values)
   ;;;
 
-  (declare query-sql-rows! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult (List Row)))
+  (declare query-sql-rows! ((DatabaseAdapter :d) (Queryable :q) => :d * :q -> DbResult (List Row)))
   (define (query-sql-rows! cnxn qry)
     (run-query! cnxn
                 (unwrap-query-container (ty:proxy-of cnxn) (to-query qry))))
 
-  (declare query-sql-rows!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> List Row))
+  (declare query-sql-rows!# ((DatabaseAdapter :d) (Queryable :q) => :d * :q -> List Row))
   (define (query-sql-rows!# cnxn qry)
     (r:ok-or-error (query-sql-rows! cnxn qry)))
 
-  (declare query-sql-row! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult Row))
+  (declare query-sql-row! ((DatabaseAdapter :d) (Queryable :q) => :d * :q -> DbResult Row))
   (define (query-sql-row! cnxn qry)
     (>>= (query-sql-rows! cnxn qry)
          (fn (input)
@@ -74,32 +74,34 @@
              ((Nil) (err-out-of-vals))
              ((Cons row _) (Ok row))))))
 
-  (declare query-sql-row!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> Row))
+  (declare query-sql-row!# ((DatabaseAdapter :d) (Queryable :q) => :d * :q -> Row))
   (define (query-sql-row!# cnxn qry)
     (r:ok-or-error (query-sql-row! cnxn qry)))
 
-  (declare execute-query! ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> DbResult Unit))
+  (declare execute-query! ((DatabaseAdapter :d) (Queryable :q) => :d * :q -> DbResult Unit))
   (define (execute-query! cnxn qry)
     (execute-query!_ cnxn
                      (unwrap-query-container (ty:proxy-of cnxn) (to-query qry))))
 
-  (declare execute-query!# ((DatabaseAdapter :d) (Queryable :q) => :d -> :q -> Void))
+  (declare execute-query!# ((DatabaseAdapter :d) (Queryable :q) => :d * :q -> Void))
   (define (execute-query!# cnxn qry)
-    (r:ok-or-error (execute-query! cnxn qry)))
+    (r:ok-or-error (execute-query! cnxn qry))
+    (values))
 
   (declare query-rows! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
-                        :d -> :q -> DbResult (List :p)))
+                        :d * :q -> DbResult (List :p)))
   (define (query-rows! cnxn qry)
     (>>= (query-sql-rows! cnxn qry)
-         (traverse parse-row)))
+         (fn (x)
+           (traverse parse-row x))))
 
   (declare query-rows!# ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
-                        :d -> :q -> List :p))
+                        :d * :q -> List :p))
   (define (query-rows!# cnxn qry)
     (r:ok-or-error (query-rows! cnxn qry)))
 
   (declare query-row! ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
-                        :d -> :q -> DbResult :p))
+                        :d * :q -> DbResult :p))
   (define (query-row! cnxn qry)
     (>>= (query-sql-rows! cnxn qry)
          (fn (input)
@@ -108,7 +110,7 @@
              ((Cons row _) (parse-row row))))))
 
   (declare query-row!# ((DatabaseAdapter :d) (Queryable :q) (ParseSqlRow :p) =>
-                        :d -> :q -> :p))
+                        :d * :q -> :p))
   (define (query-row!# cnxn qry)
     (r:ok-or-error (query-row! cnxn qry))))
 
@@ -117,7 +119,7 @@
 ;;;
 
 (coalton-toplevel
-  (declare select-objs!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult (List :p)))
+  (declare select-objs!_ ((DatabaseAdapter :d) (Persistable :p) => :d * Optional QueryOption -> DbResult (List :p)))
   (define (select-objs!_ cnxn opt?)
     (let prx-rst = ty:Proxy)
     (let prx-obj = (ty:proxy-inner (ty:proxy-inner prx-rst)))
@@ -132,11 +134,11 @@
      (query-rows! cnxn  qry)
      prx-rst))
 
-  (declare select-objs!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> List :p))
+  (declare select-objs!#_ ((DatabaseAdapter :d) (Persistable :p) => :d * Optional QueryOption -> List :p))
   (define (select-objs!#_ cnxn opt)
     (r:ok-or-error (select-objs!_ cnxn opt)))
 
-  (declare select-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> DbResult :p))
+  (declare select-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d * Optional QueryOption -> DbResult :p))
   (define (select-obj!_ cnxn opt?)
     (let prx-rst = ty:Proxy)
     (let prx-obj = (ty:proxy-inner prx-rst))
@@ -151,48 +153,51 @@
      (query-row! cnxn  qry)
      prx-rst))
 
-  (declare select-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> Optional QueryOption -> :p))
+  (declare select-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d * Optional QueryOption -> :p))
   (define (select-obj!#_ cnxn opt)
     (r:ok-or-error (select-obj!_ cnxn opt)))
 
-  (declare delete-obj! ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> DbResult Unit))
+  (declare delete-obj! ((DatabaseAdapter :d) (Persistable :p) => :d * :p -> DbResult Unit))
   (define (delete-obj! cnxn obj)
     (execute-query! cnxn (delete-obj-query obj)))
 
-  (declare delete-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Void))
+  (declare delete-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d * :p -> Void))
   (define (delete-obj!# cnxn obj)
-    (r:ok-or-error (delete-obj! cnxn obj)))
+    (r:ok-or-error (delete-obj! cnxn obj))
+    (values))
 
-  (declare insert-obj! ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> DbResult Unit))
+  (declare insert-obj! ((DatabaseAdapter :d) (Persistable :p) => :d * :p -> DbResult Unit))
   (define (insert-obj! cnxn obj)
     (execute-query! cnxn (insert-obj-query obj None)))
 
-  (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Void))
+  (declare insert-obj!# ((DatabaseAdapter :d) (Persistable :p) => :d * :p -> Void))
   (define (insert-obj!# cnxn obj)
-    (r:ok-or-error (insert-obj! cnxn obj)))
+    (r:ok-or-error (insert-obj! cnxn obj))
+    (values))
 
-  (declare insert-objs! ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> DbResult Unit))
+  (declare insert-objs! ((DatabaseAdapter :d) (Persistable :p) => :d * List :p -> DbResult Unit))
   (define (insert-objs! cnxn objs)
     (match (insert-objs-query objs None)
       ((None) (pure Unit))
       ((Some qry)
        (execute-query! cnxn qry))))
 
-  (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d -> List :p -> Void))
+  (declare insert-objs!# ((DatabaseAdapter :d) (Persistable :p) => :d * List :p -> Void))
   (define (insert-objs!# cnxn objs)
-    (r:ok-or-error (insert-objs! cnxn objs)))
+    (r:ok-or-error (insert-objs! cnxn objs))
+    (values))
 
-  (declare insert-obj-returning! ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) => :d -> :p -> DbResult :r))
+  (declare insert-obj-returning! ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) => :d * :p -> DbResult :r))
   (define (insert-obj-returning! cnxn obj)
     (let qry = (insert-obj-query obj (Some (Returning AllCols))))
     (query-row! cnxn qry))
 
-  (declare insert-obj-returning!# ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) => :d -> :p -> :r))
+  (declare insert-obj-returning!# ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) => :d * :p -> :r))
   (define (insert-obj-returning!# cnxn obj)
     (r:ok-or-error (insert-obj-returning! cnxn obj)))
 
-  (declare insert-objs-returning! ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) =>
-                                   :d -> List :p -> DbResult (List :r)))
+  (declare insert-objs-returning! ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r)
+                                   => :d * List :p -> DbResult (List :r)))
   (define (insert-objs-returning! cnxn objs)
     (let qry? = (insert-objs-query objs (Some (Returning AllCols))))
     (match qry?
@@ -201,11 +206,11 @@
        (query-rows! cnxn qry))))
 
   (declare insert-objs-returning!# ((DatabaseAdapter :d) (Persistable :p) (ParseSqlRow :r) =>
-                                    :d -> List :p -> List :r))
+                                    :d * List :p -> List :r))
   (define (insert-objs-returning!# cnxn objs)
     (r:ok-or-error (insert-objs-returning! cnxn objs)))
 
-  (declare update-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> DbResult Unit))
+  (declare update-obj!_ ((DatabaseAdapter :d) (Persistable :p) => :d * :p * Optional (List String) -> DbResult Unit))
   (define (update-obj!_ cnxn obj where-cols?)
     (match (update-obj-query obj where-cols?)
       ((Some qry)
@@ -213,9 +218,10 @@
       ((None)
        (pure Unit))))
 
-  (declare update-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d -> :p -> Optional (List String) -> Void))
+  (declare update-obj!#_ ((DatabaseAdapter :d) (Persistable :p) => :d * :p * Optional (List String) -> Void))
   (define (update-obj!#_ cnxn obj where-cols?)
-    (r:ok-or-error (update-obj!_ cnxn obj where-cols?)))
+    (r:ok-or-error (update-obj!_ cnxn obj where-cols?))
+    (values))
   )
 
 (cl:defmacro select-objs! (cnxn cl:&optional where?)

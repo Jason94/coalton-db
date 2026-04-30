@@ -143,7 +143,7 @@
       ((Some qry)
        (query-rows qry))))
 
-  (declare update-obj_ ((Monad :m) (Persistable :p) => :p -> Optional (List String) -> DBM :m (DbResult Unit)))
+  (declare update-obj_ ((Monad :m) (Persistable :p) => :p * Optional (List String) -> DBM :m (DbResult Unit)))
   (define (update-obj_ obj cols)
     (match (update-obj-query obj cols)
       ((None) (pure (Ok Unit)))
