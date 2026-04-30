@@ -2,74 +2,33 @@
 (defpackage :coalton-db/util
   (:use
    #:coalton
-   #:coalton-prelude)
+   #:coalton-prelude
+   )
   (:local-nicknames
-   (:ax #:alexandria)
-   (:m  #:coalton-library/ord-map)
    (:l  #:coalton-library/list)
+   (:opt #:coalton-library/optional)
    (:it #:coalton-library/iterator)
    )
   (:export
-   #:map-empty?
-   #:derive-eq
-   #:build-str
-   #:newline
-   #:to-string
    #:join-str
+   #:build-str
+   #:i#
+   #:force-string
+   #:contains?
+   #:contains-where?
    #:liftAn
-   #:from-opt
-   #:flatten-opts))
+   #:optional-clause
+   #:chunk-list
+   #:left-pad
+   #:right-pad
+   #:foreach
+   ))
 (in-package :coalton-db/util)
 
 (named-readtables:in-readtable coalton:coalton)
 
-(cl:eval-when (:compile-toplevel :load-toplevel :execute)
-  (cl:defun make-match (cstr-form)
-    "Converts A => ((Tuple (A) (A)) True) and (A a b) to
-((Tuple (A a1 b1) (A a2 b2)) (and (== a1 a2) (== b1 b2))"
-    (cl:let ((cst (cl:car cstr-form)))
-      (cl:if (cl:eq 1 (cl:length cstr-form))
-             `((Tuple (,cst) (,cst))
-               True)
-             (cl:let ((syms1 (cl:mapcar (cl:lambda (_) (cl:gensym))
-                                        (cl:cdr cstr-form)))
-                      (syms2 (cl:mapcar (cl:lambda (_) (cl:gensym))
-                                        (cl:cdr cstr-form))))
-               `((Tuple (,cst ,@syms1) (,cst ,@syms2))
-                 (and
-                  ,@(cl:mapcar (cl:lambda (s1 s2)
-                                 `(== ,s1 ,s2))
-                               syms1
-                               syms2))))))))
-
-(cl:defmacro derive-eq (type-form cstr-forms)
-  (cl:let* ((norm-cstr-forms (cl:mapcar #'ax:ensure-list cstr-forms))
-            (matches (cl:mapcar #'make-match norm-cstr-forms))
-            (sym1 (cl:gensym))
-            (sym2 (cl:gensym)))
-    `(define-instance (Eq ,type-form)
-       (inline)
-       (define (== ,sym1 ,sym2)
-         (match (Tuple ,sym1 ,sym2)
-           ,@matches
-           (_ False))))))
-
-(cl:defmacro build-str (cl:&rest str-parts)
-  "Concatenate all STR-PARTS."
-  `(fold <> "" (make-list ,@str-parts)))
-
 (coalton-toplevel
-  (declare map-empty? (m:Map :k :v -> Boolean))
-  (define (map-empty? m)
-    (l:null? (it:collect! (it:into-iter m))))
-
-  (declare newline String)
-  (define newline (lisp String () (cl:format nil "~%")))
-
-  (declare to-string (Into :a String => :a -> String))
-  (define to-string into)
-
-  (declare join-str (String -> List String -> String))
+  (declare join-str (String * List String -> String))
   (define (join-str sep strs)
     (match (length strs)
       (0 "")
@@ -80,15 +39,33 @@
              (l:car strs)
              (l:cdr strs)))))
 
-  (declare from-opt (:a -> Optional :a -> :a))
-  (define (from-opt def opt)
-    (match opt
-      ((Some a) a)
-      ((None) def))))
+  (declare i# (UFix * List :a -> :a))
+  (define (i# i lst)
+    (opt:from-some "List index out of bounds." (l:index i lst)))
 
-(coalton-toplevel
-  (declare <*> (Applicative :f => :f (:a -> :b) -> :f :a -> :f :b))
-  (define <*> (liftA2 id)))
+  (declare force-string (:a -> String))
+  (define (force-string x)
+    (lisp (-> String) (x)
+      (cl:format cl:nil "~a" x)))
+
+  (declare contains? (Eq :a => :a * List :a -> Boolean))
+  (define (contains? elt lst)
+    (match (l:elemindex elt lst)
+      ((Some _) True)
+      ((None) False)))
+
+  (declare contains-where? ((:a -> Boolean) * List :a -> Boolean))
+  (define (contains-where? f lst)
+    (match lst
+      ((Nil) False)
+      ((Cons x rem)
+       (if (f x)
+           True
+           (contains-where? f rem))))))
+
+(cl:defmacro build-str (cl:&rest str-parts)
+  "Concatenate all STR-PARTS."
+  `(fold <> "" (make-list ,@str-parts)))
 
 (cl:defun liftAn_ (f rest)
   (cl:let ((len (cl:length rest)))
@@ -105,14 +82,51 @@
 (cl:defmacro liftAn (f cl:&rest rest)
   (liftAn_ f rest))
 
+(cl:defun optional-clause (val)
+  "Generate code to wrap a possibly Common Lisp val (particularly a macro arg),
+in a Coalton Optional."
+  (cl:if val
+         `(Some ,val)
+         `None))
+
 (coalton-toplevel
-  (declare flatten-opts (List (Optional :a) -> List :a))
-  (define (flatten-opts lst)
-    (rec f ((rem (l:reverse lst))
-            (accum Nil))
+  (declare chunk-list (UFix * List :a -> List (List :a)))
+  (define (chunk-list n lst)
+    (rec % ((ret Nil)
+            (rem lst))
       (match rem
-        ((Nil) accum)
-        ((Cons ma rest)
-         (match ma
-           ((None) (f rest accum))
-           ((Some a) ( f rest (Cons a accum)))))))))
+        ((Nil) (reverse ret))
+        (_ (% (Cons (l:take n rem)
+                    ret)
+              (l:drop n rem))))))
+
+  (declare left-pad (String -> String))
+  (define (left-pad str)
+    "Add a blank space to the left of `str` if it is not the empty string."
+    (if (== str "")
+        ""
+        (<> " " str)))
+
+  (declare right-pad (String -> String))
+  (define (right-pad str)
+    "Add a blank space to the right of `str` if it is not the empty string."
+    (if (== str "")
+        ""
+        (<> str " ")))
+  )
+
+(defmacro foreach ((variable iter) cl:&body body)
+  "Perform `body` with `variable` bound to each element in `iter`.
+
+`iter` must have a valid `IntoIter` instance."
+  (cl:let ((iter-sym (cl:gensym "iter"))
+           (item?-sym (cl:gensym "item?")))
+   `(let ((,iter-sym (it:into-iter ,iter)))
+      (for ((,item?-sym (it:next! ,iter-sym) (it:next! ,iter-sym)))
+        (match ,item?-sym
+          ((Some ,variable)
+           ,@body
+           Unit)
+          ((None)
+           (break)
+           Unit))))))

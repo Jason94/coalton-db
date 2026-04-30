@@ -1,0 +1,434 @@
+(defpackage coalton-db/tests/api-imp
+  (:use #:coalton #:coalton-prelude #:coalton-testing
+        #:coalton-db/util
+        #:coalton-db/core
+        #:coalton-db/to-row
+        #:coalton-db/from-row
+        #:coalton-db/schema
+        #:coalton-db/persistable
+        #:coalton-db/queries
+        #:coalton-db/db-m
+        #:coalton-db/api-imp)
+  (:local-nicknames
+   (:r #:coalton-library/result)
+   (:rt #:coalton-library/monad/resultt)
+   (:sq #:coalton-db/sqlite)
+   (:db-c #:coalton-db/core)))
+(in-package :coalton-db/tests/api-imp)
+
+(named-readtables:in-readtable coalton:coalton)
+
+(fiasco:define-test-package #:coalton-db/tests/api-imp-fiasco)
+(coalton-fiasco-init #:coalton-db/tests/api-imp-fiasco)
+
+;; NOTE: These tests are integration tests. In order to properly test the
+;; api code, we're going to connect to an in-memory SQLite database.
+
+;;;
+;;; Test Sql Queries
+;;;
+
+(define-test test-run-one-query ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let result =
+    (query-sql-rows! cnxn "SELECT 'Hello';"))
+  (sq:disconnect-sqlite! cnxn)
+  (let result-val = (>>= result
+                         (fn (rows)
+                           (parse-val (i# 0 (i# 0 rows))))))
+  (is (== (Ok "Hello") result-val)))
+
+(define-test test-run-one-query-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let result =
+    (query-sql-rows!# cnxn "SELECT 'Hello';"))
+  (sq:disconnect-sqlite! cnxn)
+  (let result-val = (parse-val (i# 0 (i# 0 result))))
+  (is (== (Ok "Hello") result-val)))
+
+(define-test test-run-one-query-hardcoded-placeholder ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (SqlQuery "SELECT ?;" (Values_ "Hello")))
+  (let result = (query-sql-rows!# cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (let result-val = (parse-val (i# 0 (i# 0 result))))
+  (is (== (Ok "Hello") result-val)))
+
+(define-test test-run-one-query-placeholders ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (Select (Values_ "Hello")))
+  (let result = (query-sql-rows!# cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (let result-val = (parse-val (i# 0 (i# 0 result))))
+  (is (== (Ok "Hello") result-val)))
+
+(define-test test-execute-query ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (DropTable "test" IfExists))
+  (let result = (execute-query! cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok Unit) result)))
+
+(define-test test-execute-query-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (DropTable "test" IfExists))
+  (execute-query!# cnxn qry)
+  (sq:disconnect-sqlite! cnxn))
+
+(define-test test-query-sql-row ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (Select (Values_ 1 2 3)))
+  (let result = (query-sql-row! cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (Values_ 1 2 3))
+          result)))
+
+(define-test test-query-sql-row-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let qry = (Select (Values_ 1 2 3)))
+  (let result = (query-sql-row!# cnxn qry))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Values_ 1 2 3)
+          result)))
+
+;;;
+;;; Test FRM
+;;;
+
+(coalton-toplevel
+  (derive Eq)
+  (define-struct SimpleUser
+    (name String)
+    (verified? Boolean))
+
+  (define simple-user-table
+    (make-schema
+     "users"
+     ((column "name" TextType PrimaryKey)
+      (column "verified" BoolType))))
+
+  (define-row-parser SimpleUser
+    sql-value-parser
+    sql-value-parser)
+
+  (define-instance (ToRow SimpleUser)
+    (define (to-row user)
+      (build-row user .name .verified?)))
+
+  (define-instance (Persistable SimpleUser)
+    (define schema-for (const simple-user-table))
+    (define (prop-for-col user col-name)
+      (match col-name
+        ("name" (Some (SqlText (.name user))))
+        ("verified" (Some (SqlBool (.verified? user))))
+        (_ None))))
+
+  (declare setup-users (DatabaseAdapter :d => :d * List SimpleUser -> Void))
+  (define (setup-users cnxn users)
+    (execute-query!# cnxn (CreateSchema simple-user-table))
+    (foreach (user users)
+      (execute-query!# cnxn (Insert (IntoTable "users")
+                                    (to-row user))))))
+
+(define-test test-query-rows ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (query-rows! cnxn (Select AllCols
+                                          (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1 user2))
+          result)))
+
+(define-test test-query-rows-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (query-rows!# cnxn (Select AllCols
+                                           (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (make-list user1 user2)
+          result)))
+
+(define-test test-query-row ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (let result = (query-row! cnxn (Select AllCols
+                                           (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok user1)
+          result)))
+
+(define-test test-query-row-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (let result = (query-row!# cnxn (Select AllCols
+                                          (From "users"))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== user1
+          result)))
+
+(define-test test-select-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (select-objs! cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1 user2))
+          result)))
+
+(define-test test-select-objs-where ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (select-objs! cnxn (Where (Eq_ "name" (Value "Steve")))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1))
+          result)))
+
+(define-test test-select-objs-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (select-objs!# cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (make-list user1 user2)
+          result)))
+
+(define-test test-select-objs-where-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (select-objs!# cnxn (Where (Eq_ "name" (Value "Steve")))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (make-list user1)
+          result)))
+
+(define-test test-select-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (let result = (select-obj! cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok user1)
+          result)))
+
+(define-test test-select-obj-where ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (select-obj! cnxn (Where (Eq_ "name" (Value "Steve")))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok user1)
+          result)))
+
+(define-test test-select-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (let result = (select-obj!# cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== user1
+          result)))
+
+(define-test test-select-obj-where-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn (make-list user1 user2))
+  (let result = (select-obj!# cnxn (Where (Eq_ "name" (Value "Steve")))))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== user1
+          result)))
+
+(define-test test-delete-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (let delete-result = (delete-obj! cnxn user1))
+  (let users = (the (DbResult (List SimpleUser))
+                    (select-objs! cnxn)))
+  (is (r:ok? delete-result))
+  (is (== users
+          (Ok Nil))))
+
+(define-test test-delete-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn (make-list user1))
+  (delete-obj!# cnxn user1)
+  (let users = (the (DbResult (List SimpleUser))
+                    (select-objs! cnxn)))
+  (is (== users
+          (Ok Nil))))
+
+(define-test test-insert-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-obj! cnxn user1))
+  (let users = (select-objs! cnxn))
+  (is (== insert-result
+          (Ok Unit)))
+  (is (== users
+          (Ok (make-list user1)))))
+
+(define-test test-insert-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (insert-obj!# cnxn user1)
+  (let users = (select-objs! cnxn))
+  (is (== users
+          (Ok (make-list user1)))))
+
+(define-test test-insert-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-objs! cnxn (make-list user1 user2)))
+  (let users = (select-objs! cnxn))
+  (is (== insert-result
+          (Ok Unit)))
+  (is (== users
+          (Ok (make-list user1 user2)))))
+
+(define-test test-insert-objs-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (insert-objs!# cnxn (make-list user1 user2))
+  (let users = (select-objs! cnxn))
+  (is (== users
+          (Ok (make-list user1 user2)))))
+
+(define-test test-insert-returning-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-obj-returning! cnxn user1))
+  (is (== insert-result
+          (Ok user1))))
+
+(define-test test-insert-returning-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-obj-returning!# cnxn user1))
+  (is (== insert-result
+          user1)))
+
+(define-test test-insert-returning-objs ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Alice" True))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-objs-returning! cnxn (make-list user1 user2)))
+  (is (== insert-result
+          (Ok (make-list user1 user2)))))
+
+(define-test test-insert-returning-objs-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user2 = (SimpleUser "Alice" True))
+  (setup-users cnxn Nil)
+  (let insert-result = (insert-objs-returning!# cnxn (make-list user1 user2)))
+  (is (== insert-result
+          (make-list user1 user2))))
+
+(define-test test-update-obj ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user1-updated = (SimpleUser "Steve" True))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (insert-objs!# cnxn (make-list user1 user2))
+  (let update-result = (update-obj! cnxn user1-updated))
+  (let users = (select-objs! cnxn))
+  (is (== (Ok Unit)
+          update-result))
+  (is (== users
+          (Ok (make-list user1-updated user2)))))
+
+(define-test test-update-obj-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user1-updated = (SimpleUser "Steve" True))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (insert-objs!# cnxn (make-list user1 user2))
+  (update-obj!# cnxn user1-updated)
+  (let users = (select-objs! cnxn))
+  (is (== users
+          (Ok (make-list user1-updated user2)))))
+
+(define-test test-update-obj-specify-cols ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user1-updated = (SimpleUser "Steven" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (insert-objs!# cnxn (make-list user1 user2))
+  (let update-result = (update-obj! cnxn user1-updated ("verified")))
+  (let users = (select-objs! cnxn))
+  (is (== (Ok Unit)
+          update-result))
+  (is (== users
+          (Ok (make-list user1-updated user2)))))
+
+(define-test test-update-obj-specify-cols-unsafe ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (let user1-updated = (SimpleUser "Steven" False))
+  (let user2 = (SimpleUser "Diane" True))
+  (setup-users cnxn Nil)
+  (insert-objs!# cnxn (make-list user1 user2))
+  (update-obj!# cnxn user1-updated ("verified"))
+  (let users = (select-objs! cnxn))
+  (is (== users
+          (Ok (make-list user1-updated user2)))))
+
+;;;
+;;; Test Transactions
+;;;
+
+(define-test test-transaction-succeed ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let result =
+    (with-transaction cnxn
+      (insert-obj!# cnxn user1)
+      (select-objs! cnxn)))
+  (sq:disconnect-sqlite! cnxn)
+  (is (== (Ok (make-list user1))
+          result)))
+
+(define-test test-transaction-fail ()
+  (let cnxn = (sq:connect-sqlite! ":memory:"))
+  (let user1 = (SimpleUser "Steve" False))
+  (setup-users cnxn Nil)
+  (let result =
+    (with-transaction cnxn
+      (insert-obj!# cnxn user1)
+      (execute-query!# cnxn
+       (Insert (IntoTable "users")
+               (Values_)))
+      (select-objs! cnxn)))
+  (let users = (select-objs! cnxn))
+  (sq:disconnect-sqlite! cnxn)
+  (is (r:err? (the (DbResult (List SimpleUser))
+                   result)))
+  (is (== (the (DbResult (List SimpleUser)) users)
+          (Ok (make-list)))))

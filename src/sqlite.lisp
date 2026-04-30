@@ -3,79 +3,63 @@
   (:use
    #:coalton
    #:coalton-prelude
-   #:coalton-db/db)
+   #:coalton-db/core)
   (:local-nicknames
-   (:sl #:sqlite)
-   (:ev #:coalton-library/monad/environment)
-   (:io #:simple-io/io)
-   )
+   (:sl #:sqlite))
   (:export
-   #:SqlLiteConnection
+   ;;; Library Public
+
+   #:SqliteConnection
    #:connect-sqlite!
    #:disconnect-sqlite!
-   #:run-sqlite!
-   #:run-with-sqlite-connection!
+
+   ;;; Library Private
    ))
+
 (in-package :coalton-db/sqlite)
 
-;;;
-;;; SQLite Wrapper
-;;;
+(named-readtables:in-readtable coalton:coalton)
 
 (coalton-toplevel
   (repr :native sl:sqlite-handle)
-  (define-type SqlLiteConnection)
+  (define-type SqliteConnection)
 
-  (declare connect-sqlite! (String -> SqlLiteConnection))
+  (declare connect-sqlite! (String -> SqliteConnection))
   (define (connect-sqlite! connection-spec)
-    (lisp :a (connection-spec)
+    (lisp (-> :a) (connection-spec)
       (sl:connect connection-spec)))
 
-  (declare disconnect-sqlite! (SqlLiteConnection -> Unit))
+  (declare disconnect-sqlite! (SqliteConnection -> Void))
   (define (disconnect-sqlite! connection)
-    (lisp :a (connection)
+    (lisp (-> :a) (connection)
       (sl:disconnect connection))
-    Unit)
+    (values))
 
-  (define-instance (MonadDatabase (ev:EnvT SqlLiteConnection io:IO))
-    (define (query-none (Query sql bound-vals))
-      (do
-       (connection <- ev:ask)
-       (lift (io:wrap-io
-               (lisp :x (connection sql bound-vals)
-                 (cl:let ((unwrapped-bound-vals (cl:mapcar #'coalton-db/db::unwrap-sql-value bound-vals)))
-                   (cl:handler-case
-                       (cl:progn
-                         (cl:apply #'sl:execute-non-query (cl:cons connection (cl:cons sql unwrapped-bound-vals)))
-                         (Ok Unit))
-                     (cl:error (e)
-                       (Err (QueryError (cl:format cl:nil "~a" e)))))))))))
-    (define (query-rows (Query sql bound-vals) cols)
-      (do
-       (connection <- ev:ask)
-       (let types = (map .type cols))
-       (lift (io:wrap-io
-               (lisp :x (connection sql bound-vals types)
-                 (cl:handler-case
-                     (cl:progn
-                       (cl:let* ((unwrapped-bound-vals (cl:mapcar #'coalton-db/db::unwrap-sql-value bound-vals))
-                                 (rows (cl:apply
-                                        #'sl:execute-to-list
-                                        (cl:cons connection (cl:cons sql unwrapped-bound-vals)))))
-                         (Ok (cl:mapcar
-                              (cl:lambda (row)
-                                (cl:mapcar #'coalton-db/db::wrap-raw-sql-value types row))
-                              rows))))
-                   (cl:error (e)
-                     (Err (QueryError (cl:format cl:nil "~a" e)))))))))))
+  (declare norm-sqlite-types (SqlValue -> SqlValue))
+  (define (norm-sqlite-types val)
+    "Handle boolean values."
+    (match val
+      ((SqlBool b)
+       (SqlText
+        (if b "TRUE" "FALSE")))
+      (_ val)))
 
-  (declare run-sqlite!_ (ev:EnvT SqlLiteConnection io:IO :a -> SqlLiteConnection -> :a))
-  (define (run-sqlite!_ op connection)
-    (io:run! (ev:run-envT op connection)))
-
-  (declare run-sqlite! (DbOp (ev:EnvT SqlLiteConnection io:IO) (QueryResult :a) -> SqlLiteConnection -> QueryResult :a))
-  (define run-sqlite! (compose run-sqlite!_ run-dbop))
-
-  (declare run-with-sqlite-connection! (SqlLiteConnection -> DbOp (ev:EnvT SqlLiteConnection io:IO) (QueryResult :a) -> QueryResult :a))
-  (define (run-with-sqlite-connection! connection op)
-    (run-sqlite!_ (run-dbop op) connection)))
+  (define-instance (DatabaseAdapter SqliteConnection)
+    (define (next-placeholder _ _)
+      "?")
+    (define (auto-increment-syntax _)
+      (AutoIncrementSyntax "" "AUTOINCREMENT"))
+    (define (run-query! cnxn (SqlQuery sql params))
+      (let normed-params = (map norm-sqlite-types params))
+      (lisp (-> :x) (cnxn sql normed-params)
+        (cl:handler-case
+            (cl:let* ((unwrapped-params (cl:mapcar #'unwrap-sql-value normed-params))
+                      (rows (cl:apply
+                             #'sl:execute-to-list
+                             (cl:cons cnxn (cl:cons sql unwrapped-params)))))
+              (Ok (cl:mapcar
+                   (cl:lambda (row)
+                     (cl:mapcar #'wrap-raw-sql-value row))
+                   rows)))
+          (cl:error (e)
+            (Err (QueryError (cl:format cl:nil "~a" e)))))))))

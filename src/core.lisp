@@ -5,88 +5,69 @@
    #:coalton-prelude
    #:coalton-db/util)
   (:local-nicknames
-   (:l  #:coalton-library/list)
-   (:m  #:coalton-library/ord-map)
-   (:op #:coalton-library/optional)
-   (:ty #:coalton-library/types)
-   )
-  ;; (:import-from
-  ;;  )
+   (:ty #:coalton-library/types))
   (:export
    ;;; Library Public
-   #:SqlValue
-   #:SqlInt
-   #:SqlText
-   #:SqlBool
-   #:SqlNull
-
-   #:TableName
-   #:ColumnName
-
    #:SqlType
    #:IntType
    #:TextType
    #:BoolType
 
-   #:DefaultOption
-   #:ConstantValue
-   #:CurrentTime
-   #:CurrentDate
-   #:CurrentTimestamp
+   #:SqlValue
+   #:SqlInt
+   #:SqlText
+   #:SqlBool
+   #:SqlNull
+   #:Value
+   #:Values_
+   #:Row
 
-   #:ColumnFlag
+   #:DbError
+   #:QueryConstructionError
+   #:QueryError
+   #:ResultParseError
+   #:DbResult
+
+   #:SqlQuery
+
    #:PrimaryKey
-   #:NotNullable
    #:Unique
-   #:DefaultVal
+   #:Default%
+   #:Default_
+   #:Nullable
+   #:AutoIncrement
 
-   #:ColumnDef
+   #:Schema
 
-   #:TableFlag
-   #:CompositePrimaryKey
-   #:CompositeUnique
-
-   #:Relationship
-   #:HasOne
-   #:BelongsTo
-
-   #:TableDef
+   #:DatabaseAdapter
 
    ;;; Library Private
-   #:ConstantValue_
+   #:next-placeholder
+   #:run-query!
+   #:auto-increment-syntax
+   #:AutoIncrementSyntax
+   #:execute-query!_
 
-   #:is-default?
-   #:has-default?
+   #:wrap-raw-sql-value
+   #:unwrap-sql-value
 
-   #:ForeignKey_
-
-   #:has-keys?
-   #:rltn-table-name
-   #:relationship-foreign-key
-
-   #:all-flags
-   #:column-names
-   #:lookup-col!
-   #:RowMap
+   #:ColumnDefinition
+   #:TableProperty
+   #:CompositePrimaryKey%
+   #:SqlTable
    ))
+
 (in-package :coalton-db/core)
 
 (named-readtables:in-readtable coalton:coalton)
 
-;;;;
-;;;; COALTON-DB/CORE contains all of the code used for core SQL representations, including:
-;;;; - Representing values returned from the database
-;;;; - Defining schemas for tables in the database
-;;;;
-
 ;;;
-;;; SQL Values - Represent values returned from the database that have not been
-;;; parsed into Coalton types yet, or Coalton values that have been serialized
-;;; to be sent to the database.
+;;; Raw SQL Values
 ;;;
 
 (coalton-toplevel
   (repr :lisp)
+  (derive Eq)
   (define-type SqlValue
     "A runtime value inside of a SQL row."
     (SqlInt Integer)
@@ -94,9 +75,12 @@
     (SqlBool Boolean)
     SqlNull)
 
-  (derive-eq SqlValue ((SqlInt i) (SqlText t) (SqlBool b) SqlNull))
+  ;; TODO: Replace using into for this with a custom ToSqlValue class, or something
 
-  ;; I think this is a bad idea because it's too tied to an individual DB.
+  (inline)
+  (declare Value (Into :a SqlValue => :a -> SqlValue))
+  (define Value into)
+
   (define-instance (Into Integer SqlValue)
     (define into SqlInt))
 
@@ -111,184 +95,143 @@
       (match a
         ((None) SqlNull)
         ((Some a) (into a)))))
-  )
+
+  (define-type-alias Row (List SqlValue)))
+
+(cl:defmacro Values_ (cl:&rest vals)
+  "A list of raw SQL values."
+  `(the (List SqlValue)
+    (make-list ,@(cl:mapcar (cl:lambda (x)
+                              `(into ,x))
+                            vals))))
+
+(cl:defun unwrap-sql-value (val)
+  "Unwrap VAL and return the value inside it or a constant representation. Must be
+a type that can be passed directly to a DB implementation as a bound value."
+  (cl:cond
+    ((cl:typep val 'SqlValue/SqlInt)
+     (SqlValue/SqlInt-_0 val))
+    ((cl:typep val 'SqlValue/SqlText)
+     (SqlValue/SqlText-_0 val))
+    ((cl:typep val 'SqlValue/SqlBool)
+     (SqlValue/SqlBool-_0 val))
+    ((cl:typep val 'SqlValue/SqlNull)
+     cl:nil)
+    (cl:t (cl:error (cl:format cl:nil "Unknown SQL Value: ~a" val)))))
+
+(cl:defun wrap-raw-sql-value (raw-val)
+  "Wrap VAL in the appropriate SqlValue."
+  (cl:cond
+    ((cl:not raw-val)
+     SqlNull)
+    ((cl:typep raw-val 'cl:integer)
+     (SqlInt raw-val))
+    ((cl:typep raw-val 'cl:string)
+     (SqlText raw-val))
+    (cl:t (cl:error (cl:format cl:nil "Unknown SQL type: ~a" raw-val)))))
 
 ;;;
-;;; Table Schema DSL - Define SQL table schemas in code.
+;;; Universal error type
 ;;;
 
 (coalton-toplevel
-  (define-type-alias TableName String)
-  (define-type-alias ColumnName String)
+  (derive Eq)
+  (define-type DbError
+    (QueryConstructionError String)
+    (QueryError String)
+    (ResultParseError String))
 
+  (define-instance (Signalable DbError)
+    (define (error err)
+      (match err
+        ((QueryConstructionError str)
+         (error str))
+        ((QueryError str)
+         (error str))
+        ((ResultParseError str)
+         (error str)))))
+
+  (define-type-alias DbResult (Result DbError)))
+
+;;;
+;;; SQL Query
+;;;
+
+(coalton-toplevel
+  (define-type SqlQuery
+    "A query that has been 'compiled' to a SQL query string and bound parameters."
+    (SqlQuery String (List SqlValue))))
+
+;;;
+;;; Table/Schema Definitions
+;;;
+
+(coalton-toplevel
+
+  (derive Eq)
+  (define-type ColumnProperty
+    PrimaryKey
+    Unique
+    (Default% SqlValue))
+
+  (define-type GhostColumnProperty
+    "Keywords used in the syntax, but not inserted as column propertiese into the
+column definition."
+    Nullable
+    "SQL defaults to Nullable, but coalton-db defaults to Not-Nullable. To support
+that, coalton-db inserts 'NOT NULL' by default, and does *not* do that if the
+`Nullable` 'ghost' property is used in the definition."
+    AutoIncrement
+    "Different adapters write AutoIncrement before/after the 'PRIMARY KEY' modifier,
+so we can't serialize it directly into the sql query string.")
+
+  (repr :enum)
+  (derive Eq)
   (define-type SqlType
-    "The type of a SQL column or value."
     IntType
     TextType
     BoolType)
 
-  (derive-eq SqlType (IntType TextType BoolType))
+  (define-struct ColumnDefinition
+    (col-name String)
+    (col-type SqlType)
+    (properties (List ColumnProperty))
+    ;; TODO: Convert these to a (List GhostColumnProperty)
+    (nullable? Boolean)
+    (auto-increment? Boolean))
 
-  (define-type DefaultOption
-    "Possible values for a column default."
-    (ConstantValue_ SqlValue)
-    CurrentTime
-    CurrentDate
-    CurrentTimestamp)
+  (define-type-alias SqlTable String)
 
-  (derive-eq DefaultOption ((ConstantValue_ val) CurrentTime CurrentDate CurrentTimestamp))
+  (derive Eq)
+  (define-type TableProperty
+    (CompositePrimaryKey% (List SqlTable)))
 
-  (declare ConstantValue (Into :a SqlValue => :a -> DefaultOption))
-  (define (ConstantValue val)
-    "A constant default value for a column."
-    (ConstantValue_ (into val)))
+  (define-struct Schema
+    (tbl-name String)
+    (col-specs (List ColumnDefinition))
+    (tbl-props (List TableProperty))))
 
-  (define-type ColumnFlag
-    "Flags on a SQL column."
-    PrimaryKey
-    NotNullable
-    Unique
-    (DefaultVal DefaultOption))
-
-  (derive-eq ColumnFlag (PrimaryKey NotNullable Unique (DefaultVal v)))
-
-  (define-struct ColumnDef
-    (name ColumnName)
-    (type SqlType)
-    (flags (List ColumnFlag)))
-
-  (declare is-default? (ColumnFlag -> Boolean))
-  (define (is-default? flag)
-    (match flag
-      ((DefaultVal _) True)
-      (_ False)))
-
-  (declare has-default? (ColumnDef -> Boolean))
-  (define (has-default? col)
-    (op:some? (l:find is-default? (.flags col))))
-
-  (define-type TableFlag
-    "Flags on a SQL table."
-    ;; Create a primary key on the first and remaining columns
-    (CompositePrimaryKey ColumnName (List ColumnName))
-    (CompositeUnique ColumnName (List ColumnName))
-    ;; Stores corresponding keys as a tuple list of here -> there
-    (ForeignKey_ TableName (List (Tuple ColumnName ColumnName)))))
-
-(cl:defmacro ForeignKey (has-table here-key-there-key-pairs)
-  "ForeignKey flag on a table. Can take either a String or a Persistable name
-as the table, and takes a list of (here-key there-key) pairs for the columns.
-Must specify at least one pair of keys!
-
-Examples:
-  (ForeignKey User ((\"user-id\" \"id\")))
-  (ForeignKey \"User\" ((\"user-id\" \"id\")))
-  (ForeignKey User ((\"user-id\" \"id\")
-                    (\"proj-id\" \"proj-id\")))"
-  (cl:if (cl:null here-key-there-key-pairs)
-    (cl:error "Must supply at least one pair of keys!")
-    `(ForeignKey_ (table-name (wrap-has-table-name ,has-table))
-                  (make-list
-                   ,@(cl:mapcar
-                     #'(cl:lambda (pair)
-                         `(Tuple ,(cl:first pair) ,(cl:second pair)))
-                     here-key-there-key-pairs)))))
-
-(coalton-toplevel
-  (define-type Relationship
-    (HasOne TableName)
-    ;; List of (our key, their key)
-    (BelongsTo_  TableName (List (Tuple ColumnName ColumnName))))
-
-  (declare has-keys? (Relationship -> Boolean))
-  (define (has-keys? rltn)
-    "Return TRUE if RLTN stores the keys for the relationishp."
-    (match rltn
-      ((HasOne _) False)
-      ((BelongsTo_ _ _) True)))
-
-  (declare rltn-table-name (Relationship -> TableName))
-  (define (rltn-table-name rltn)
-    "Get the table name for the other side of a relationship."
-    (match rltn
-      ((HasOne name)
-       name)
-      ((BelongsTo_ name _)
-       name)))
-
-  (declare relationship-foreign-key (Relationship -> Optional TableFlag))
-  (define (relationship-foreign-key rltn)
-    "For RLTN, generate the foreign key(s) on the table that relationship is defined on."
-    (match rltn
-      ((HasOne _)
-       None)
-      ((BelongsTo_ other-tbl-name key-pairs)
-       (Some (ForeignKey_ other-tbl-name key-pairs)))))
-
-  (define-struct TableDef
-    (name String)
-    (columns (List ColumnDef))
-    (flags (List TableFlag))
-    (relationships (List Relationship)))
-
-  (define-instance (Eq TableDef)
-    (define (== a b)
-      (== (.name a) (.name b))))
-  )
-
-(cl:defmacro BelongsTo (our-keys (other-table-name cl:&rest their-keys))
-  "Example: (BelongsTo (\"user-id\" \"project-id\") (\"User\" \"id\" \"project-id\"))"
-  (cl:let ((keypairs (cl:mapcar
-                      (cl:lambda (a b)
-                        `(Tuple ,a ,b))
-                      our-keys
-                      their-keys)))
-    `(BelongsTo_
-      ,other-table-name
-      (make-list ,@keypairs))))
+(cl:defmacro Default_ (val)
+  `(Default% (into ,val)))
 
 ;;;
-;;; TableDef utilities
+;;; Database Adapter
 ;;;
 
 (coalton-toplevel
-  (declare all-flags (TableDef -> List TableFlag))
-  (define (all-flags table)
-    "Get all of the flags on a table, including those generated by relationship
-definitions, etc."
-    (<> (.flags table) (flatten-opts (map relationship-foreign-key (.relationships table)))))
+  (define-struct AutoIncrementSyntax
+    "Store SQL strings to be inserted before and/or after 'PRIMARY KEY' in an
+AutoIncrement column."
+    (before-pkey String)
+    (after-pkey String))
 
-  (declare column-names (TableDef -> List ColumnName))
-  (define (column-names table)
-    (map .name (.columns table)))
+  (define-class (DatabaseAdapter :a)
+    (next-placeholder (ty:Proxy :a * Optional String -> String))
+    (auto-increment-syntax (ty:Proxy :a -> AutoIncrementSyntax))
+    (run-query! (:a * SqlQuery -> DbResult (List Row))))
 
-  (declare lookup-col! (TableDef -> ColumnName -> ColumnDef))
-  (define (lookup-col! table name)
-    (for col in (.columns table)
-      (when (== (.name col) name)
-        (return col)))
-    (error (<> "Could not find column named " name)))
-
-  (declare basic-column (String -> SqlType -> ColumnDef))
-  (define (basic-column name type)
-    "Create a SQL column definition with default flags:
-* primary key?    = False
-* not nullable?   = True
-* unique?         = False"
-    (ColumnDef name type (make-list)))
-
-  (define-type-alias RowMap (m:Map ColumnName SqlValue))
-
-  (define-instance (Into SqlValue String)
-    (define (into val)
-      (match val
-        ((SqlInt i)
-         (<> "SqlInt " (into i)))
-        ((SqlText s)
-         (<> "SqlText " s))
-        ((SqlBool b)
-         (if b
-             "SqlBool True"
-             "SqlBool False"))
-        ((SqlNull)
-         "SqlNull")))))
+  ;; NOTE: Depending on the underlying database library, it might be worth exposing
+  ;; this to DatabaseAdapter.
+  (declare execute-query!_ (DatabaseAdapter :a => :a * SqlQuery -> DbResult Unit))
+  (define (execute-query!_ cnxn qry)
+    (map (fn (_) Unit) (run-query! cnxn qry))))

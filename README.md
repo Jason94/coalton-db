@@ -1,12 +1,9 @@
 # Installation
 
-`coalton-db` currently has two requirements that are not on Quicklisp. Additionally, `coalton-db` itself is not yet on Quicklisp.
+`coalton-db` itself is not yet on Quicklisp. You can install it by running:
 
-First, the library relies on a branch of the Coalton compiler providing monad transformers to the standard library which has not been merged yet. Second, it relies on a small library providing a simple IO type. You can install both of them and `coalton-db` by running:
 
 ```bash
-git clone -b monad-freet https://github.com/Jason94/coalton.git ~/quicklisp/local-projects/coalton
-git clone https://github.com/Jason94/coalton-simple-io.git ~/quicklisp/local-projects/coalton-simple-io
 git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/coalton-db
 ```
 
@@ -14,33 +11,44 @@ git clone https://github.com/Jason94/coalton-db.git ~/quicklisp/local-projects/c
 
 `coalton-db` is *very much* still in alpha status, if that, and is subject to frequent breaking changes. It's also not yet feature complete, and is missing several important features such as modeling relationships and transaction batching/rollback.
 
-### TODOs:
+### TODOs for 0.1 rewrite release:
 
+ - [x] Improve the imperative interface
+ - [x] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
  - [x] Add internal support for query parameterization, instead of hard-coding values
- - [ ] Add tests!
- - [x] Add table constraints. [CompositeUnique and CompositePrimaryKey currently supported]
+ - [x] Add tests!
+ - [x] Add table constraints
+ - [x] Add AutoIncrement column property
+ - [x] Add DEFAULT column property
+ - [ ] Add NewRow abstraction to properly handle autoincrement and default columns
+ - [x] Add transaction support
+ - [ ] Add insert-returning support, including NewRow
+ - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
+ - [ ] Add query debugging
+ - [ ] Add model macro
+ - [ ] Add documentation
+ - [ ] Flesh out readme
+ - [ ] Flesh out examples
+ 
+### TODOs for post-0.1 features:
+
+ - [ ] Add CASE query support
+ - [ ] Use CASE query for efficient UPDATE from query
+   - See: https://dev.to/chidioguejiofor/scenario-1-making-updates-to-multiple-fields-56hl
+ - [ ] Add OrderBy support
+ - [x] Add CompositeUnique table constraint
  - [ ] Add support for db schemas (probably works already? Maybe just note in readme and add a test)
- - [x] Add transaction support.
+ - [ ] Add In_ to RowCondition
+ - [ ] Use In_ to implement delete-objs high-level api command
+ - [ ] Add upsert support
  - [ ] Add SQL functions to RowCondition
  - [ ] Add remaining SQLite column types
- - [x] Add DEFAULT column property
- - [x] Add full DEFAULT support
  - [ ] Add CHECK column property
- - [x] Add foreign key support
+ - [ ] Add foreign key support
  - [ ] Add joins
  - [ ] Add relationships
- - [ ] Improve the imperative interface. (Lacks proper transaction support)
- - [ ] Add support for other DB's besides SQLite. Probably start with PostgreSQL.
  - [ ] Add index support
- - [ ] Add separate QueryBuilder AST to construct SQL queries, to help users manually run queries
-   - Include features like ORDER BY, LIMIT, and aggregates
- - [x] Add query debugging
- - [ ] RunNonQuerySQLs should short-circuit internally. Particularly egregious for (ensure-schema (...) True)!
  - [ ] Disconnect from the DB if the thread crashes (keep it from locking until restarting SLIME)
-   
-### Smaller Clean Ups / Refactors:
-
-- [ ] Delete HasTableName. Instead we should have a lower level SQL DSL API that takes strings directly.
  
 ### TOMaybes:
 
@@ -49,9 +57,8 @@ Maybe not good ideas, or maybe lower priority ok ideas:
 - [ ] Add fine-grained ForeignKey options (ON DELETE CASCADE, ON UPDATE NO ACTION, etc) (DB specific? Probably?)
 - [ ] Add richer ORM style features, like soft deleting and automatic updated-at/created-at cols
 - [ ] Support prepared statements
-- [ ] Support for schema migrations
+- [ ] Support for schema migrations (this is a *big* lift)
 - [ ] Either fully support the range of column and table flags, or add a string escape hatch. Not sure how portable flags like "ON CONFLICT REPLACE" would be between DB implementations. (If the SQl is different, that's not too hard a problem to solve. If some flags just aren't supported by some implementations, that's harder.)
-- [ ] Add more validity checking to table definitions (not multiple PKeys, etc) (may not be necessary because the DB should do this for us)
 
 # Examples
 
